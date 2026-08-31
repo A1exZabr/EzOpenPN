@@ -95,6 +95,7 @@ def test_rendered_hysteria_is_fail_closed(rendered: Path) -> None:
     assert config["obfs"]["type"] == "salamander"
     assert config["trafficStats"]["listen"] == "0.0.0.0:9999"
     assert config["trafficStats"]["secret"] == "test-stats-value-5678"
+    assert config["tls"]["sniGuard"] == "dns-san"
     assert config["masquerade"]["type"] == "string"
     assert "EzOpenPN" in config["masquerade"]["string"]["content"]
 
@@ -315,9 +316,9 @@ def test_real_runtimes_accept_management_and_revocation(
             "-days",
             "1",
             "-subj",
-            "/CN=hysteria",
+            "/CN=127.0.0.1",
             "-addext",
-            "subjectAltName=DNS:hysteria",
+            "subjectAltName=IP:127.0.0.1",
             "-keyout",
             str(certificate_root / "privkey.pem"),
             "-out",
@@ -342,7 +343,7 @@ def test_real_runtimes_accept_management_and_revocation(
     client_config = {
         "server": "hysteria:8443",
         "auth": "profile-auth-value-1234",
-        "tls": {"sni": "hysteria", "insecure": True},
+        "tls": {"sni": "127.0.0.1", "insecure": True},
         "obfs": {
             "type": "salamander",
             "salamander": {"password": "test-obfs-value-1234"},

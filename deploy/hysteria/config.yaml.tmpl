@@ -3,7 +3,7 @@ listen: {{ hysteria.listen | tojson }}
 tls:
   cert: {{ hysteria.certificate_path | tojson }}
   key: {{ hysteria.private_key_path | tojson }}
-  sniGuard: strict
+  sniGuard: dns-san
 
 obfs:
   type: salamander

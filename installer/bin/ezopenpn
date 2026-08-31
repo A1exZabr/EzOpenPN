@@ -13,6 +13,8 @@ fi
 # shellcheck disable=SC1091
 source "${library_root}/common.sh"
 # shellcheck disable=SC1091
+source "${library_root}/state.sh"
+# shellcheck disable=SC1091
 source "${library_root}/lock.sh"
 # shellcheck disable=SC1091
 source "${library_root}/preflight.sh"
@@ -22,6 +24,8 @@ source "${library_root}/diagnostics.sh"
 source "${library_root}/admin.sh"
 # shellcheck disable=SC1091
 source "${library_root}/backup.sh"
+# shellcheck disable=SC1091
+source "${library_root}/upgrade.sh"
 unset library_root
 
 usage() {
@@ -32,7 +36,9 @@ usage() {
     '  ezopenpn logs SERVICE [--since SECONDS] [--tail LINES]' \
     '  ezopenpn admin reset-password' \
     '  ezopenpn backup' \
-    '  ezopenpn restore ARCHIVE'
+    '  ezopenpn restore ARCHIVE' \
+    '  ezopenpn update' \
+    '  ezopenpn reinstall'
 }
 
 dispatch_logs() {
@@ -100,6 +106,10 @@ main() {
     restore)
       [[ $# -eq 2 ]] || { usage >&2; return 2; }
       backup_restore "$2"
+      ;;
+    update | reinstall)
+      [[ $# -eq 1 ]] || { usage >&2; return 2; }
+      upgrade_run "$command"
       ;;
     *)
       usage >&2

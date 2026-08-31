@@ -1,0 +1,88 @@
+services:
+  control:
+    image: ezopenpn-control:test
+    pull_policy: never
+    volumes:
+      - type: bind
+        source: ${STACK_TEST_ROOT}/control.toml
+        target: /etc/ezopenpn/control.toml
+        read_only: true
+      - type: bind
+        source: ${STACK_TEST_ROOT}/control
+        target: /var/lib/ezopenpn
+      - type: bind
+        source: ${STACK_TEST_ROOT}/secrets/master.key
+        target: /run/secrets/ezopenpn_master_key
+        read_only: true
+      - type: bind
+        source: ${STACK_TEST_ROOT}/secrets/hysteria-api.key
+        target: /run/secrets/ezopenpn_hysteria_api
+        read_only: true
+      - type: bind
+        source: ${STACK_TEST_ROOT}/secrets/hysteria-obfs.key
+        target: /run/secrets/ezopenpn_hysteria_obfs
+        read_only: true
+      - type: bind
+        source: ${STACK_TEST_ROOT}/xray-run
+        target: /run/ezopenpn-xray
+        read_only: true
+
+  xray:
+    image: ezopenpn-xray:test
+    pull_policy: never
+    volumes:
+      - type: bind
+        source: ${STACK_TEST_ROOT}/runtime/xray/config.json
+        target: /etc/xray/config.json
+        read_only: true
+      - type: bind
+        source: ${STACK_TEST_ROOT}/xray-run
+        target: /run/ezopenpn-xray
+
+  hysteria:
+    volumes:
+      - type: bind
+        source: ${STACK_TEST_ROOT}/runtime/hysteria/config.yaml
+        target: /etc/hysteria/config.yaml
+        read_only: true
+      - type: bind
+        source: ${STACK_TEST_ROOT}/hysteria-certs
+        target: /certs
+        read_only: true
+
+  gateway:
+    volumes:
+      - type: bind
+        source: ${STACK_TEST_ROOT}/caddy-data
+        target: /data/caddy
+      - type: bind
+        source: ${REPOSITORY_ROOT}/tests/compose/fixtures/Caddyfile.test
+        target: /etc/caddy/Caddyfile
+        read_only: true
+      - type: bind
+        source: ${STACK_TEST_ROOT}/gateway-certs
+        target: /test-certs
+        read_only: true
+
+  cert-sync:
+    image: ezopenpn-cert-sync:test
+    pull_policy: never
+    command:
+      - --source
+      - /caddy-data
+      - --output
+      - /hysteria-certs
+      - --ip
+      - ${PUBLIC_IP}
+      - --interval
+      - 1s
+      - --min-validity
+      - 30m
+    volumes:
+      - type: bind
+        source: ${STACK_TEST_ROOT}/caddy-data
+        target: /caddy-data
+        read_only: true
+      - type: bind
+        source: ${STACK_TEST_ROOT}/hysteria-certs
+        target: /hysteria-certs

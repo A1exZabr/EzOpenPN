@@ -82,6 +82,16 @@ PY
   } >>"$candidate_lock"
 done <"$source_rows"
 
+python3 - "$candidate_lock" <<'PY'
+from __future__ import annotations
+
+import sys
+from pathlib import Path
+
+path = Path(sys.argv[1])
+path.write_text(path.read_text(encoding="utf-8").rstrip("\n") + "\n", encoding="utf-8")
+PY
+
 if [[ "$mode" == "--check" ]]; then
   if ! cmp -s "$candidate_lock" "$lock_path"; then
     echo "deploy/images.lock does not match current linux/amd64 manifests" >&2

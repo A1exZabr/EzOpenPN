@@ -1,0 +1,20 @@
+version = 1
+
+[[annotations]]
+path = "**"
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2026 EzOpenPN contributors"
+SPDX-License-Identifier = "MIT"
+
+[[annotations]]
+path = [
+  "proto/xray/**/*.proto",
+  "proto/xray/LICENSE",
+  "control/src/ezopenpn/integrations/xray_proto/**/*.py",
+]
+precedence = "override"
+SPDX-FileCopyrightText = [
+  "XTLS/Xray-core contributors",
+  "2026 EzOpenPN contributors",
+]
+SPDX-License-Identifier = "MPL-2.0"

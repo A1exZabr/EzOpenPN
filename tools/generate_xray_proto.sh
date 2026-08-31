@@ -42,6 +42,21 @@ while IFS= read -r generated_directory; do
   touch "$generated_directory/__init__.py"
 done < <(find "$generated_root" -type d -print)
 
+uv run python - "$generated_root" <<'PY'
+from __future__ import annotations
+
+import sys
+from pathlib import Path
+
+root = Path(sys.argv[1])
+header = (
+    "# SPDX-" + "License-Identifier: MPL-2.0\n"
+    "# Derived from XTLS/Xray-core v26.3.27.\n"
+)
+for path in sorted(root.rglob("*.py")):
+    path.write_text(header + path.read_text(encoding="utf-8"), encoding="utf-8")
+PY
+
 if [ "$mode" = "--write" ]; then
   mkdir -p "$target_root"
   rsync --archive --delete "$generated_root/" "$target_root/"

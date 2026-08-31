@@ -209,8 +209,10 @@ class StackHarness:
 
     def exported_leaf_fingerprint(self) -> str:
         certificate_path = self.root / "hysteria-certs" / "fullchain.pem"
+        privilege_prefix = [] if os.geteuid() == 0 else ["sudo", "-n"]
         result = subprocess.run(
             [
+                *privilege_prefix,
                 "openssl",
                 "x509",
                 "-in",
@@ -221,9 +223,11 @@ class StackHarness:
             ],
             capture_output=True,
             text=True,
-            check=True,
+            check=False,
             timeout=10,
         )
+        if result.returncode != 0:
+            raise ValueError("exported certificate cannot be inspected")
         fingerprint = result.stdout.strip().partition("=")[2].replace(":", "").lower()
         if len(fingerprint) != 64 or any(
             character not in "0123456789abcdef" for character in fingerprint

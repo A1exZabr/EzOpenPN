@@ -1,6 +1,9 @@
 # syntax=docker/dockerfile:1.7
 
-FROM python:3.12.11-slim-bookworm AS builder
+ARG PYTHON_BASE_REPOSITORY=docker.io/library/python
+ARG PYTHON_BASE_DIGEST=sha256:c00fc7b44d844b6da22861ec24af43968a5200eac4ec607b4725d585165d6b49
+
+FROM ${PYTHON_BASE_REPOSITORY}@${PYTHON_BASE_DIGEST} AS builder
 
 ENV UV_COMPILE_BYTECODE=1 \
     UV_LINK_MODE=copy
@@ -12,7 +15,7 @@ COPY pyproject.toml uv.lock README.md ./
 COPY control/src ./control/src
 RUN uv sync --frozen --no-dev --no-editable
 
-FROM python:3.12.11-slim-bookworm AS runtime
+FROM ${PYTHON_BASE_REPOSITORY}@${PYTHON_BASE_DIGEST} AS runtime
 
 ENV PATH="/app/.venv/bin:${PATH}" \
     PYTHONDONTWRITEBYTECODE=1 \

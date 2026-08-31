@@ -1,0 +1,20 @@
+# syntax=docker/dockerfile:1.7
+
+ARG GO_BUILDER_REPOSITORY=docker.io/library/golang
+ARG GO_BUILDER_DIGEST=sha256:4f7e5f23bfacf4c2934ba70c132532742b6a53f01a4209e2c2eb7bd06c16f0bc
+ARG DISTROLESS_BASE_REPOSITORY=gcr.io/distroless/base-debian12
+ARG DISTROLESS_BASE_DIGEST=sha256:5883c320d81f76c764e114c9ab14054f037bb040907816fc9028d80d9602a7c3
+
+FROM ${GO_BUILDER_REPOSITORY}@${GO_BUILDER_DIGEST} AS builder
+WORKDIR /src/runtime
+COPY runtime/go.mod ./go.mod
+RUN go mod download
+COPY runtime/ ./
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
+    -trimpath -buildvcs=false -ldflags="-s -w" \
+    -o /out/cert-sync ./cmd/cert-sync
+
+FROM ${DISTROLESS_BASE_REPOSITORY}@${DISTROLESS_BASE_DIGEST}
+COPY --from=builder /out/cert-sync /usr/local/bin/cert-sync
+USER 10004:11003
+ENTRYPOINT ["/usr/local/bin/cert-sync"]

@@ -1,0 +1,23 @@
+[images.caddy]
+repository = "docker.io/library/caddy"
+version = "2.11.4-alpine"
+
+[images.distroless-base]
+repository = "gcr.io/distroless/base-debian12"
+version = "nonroot"
+
+[images.go-builder]
+repository = "docker.io/library/golang"
+version = "1.26.0-bookworm"
+
+[images.hysteria]
+repository = "docker.io/tobyxdd/hysteria"
+version = "v2.12.2"
+
+[images.python-base]
+repository = "docker.io/library/python"
+version = "3.12.11-slim-bookworm"
+
+[images.xray-upstream]
+repository = "ghcr.io/xtls/xray-core"
+version = "26.3.27"

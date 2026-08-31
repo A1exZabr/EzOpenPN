@@ -9,6 +9,7 @@ import time
 from base64 import urlsafe_b64encode
 from dataclasses import dataclass
 from pathlib import Path
+from typing import ClassVar
 from uuid import uuid4
 
 import httpx
@@ -48,6 +49,14 @@ def test_stack_project_name_normalizes_mixed_case_suffix() -> None:
 
 @dataclass(frozen=True)
 class StackHarness:
+    services: ClassVar[tuple[str, ...]] = (
+        "control",
+        "xray",
+        "hysteria",
+        "gateway",
+        "cert-sync",
+    )
+
     root: Path
     project: str
     environment_file: Path
@@ -87,6 +96,29 @@ class StackHarness:
 
     def container_id(self, service: str) -> str:
         return self.run("ps", "-q", service)
+
+    def inspect(self, service: str) -> dict[str, object]:
+        container_id = self.container_id(service)
+        if not container_id:
+            raise RuntimeError(f"{service} container is missing")
+        result = subprocess.run(
+            ["docker", "inspect", container_id],
+            stdin=subprocess.DEVNULL,
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=20,
+        )
+        if result.returncode != 0:
+            diagnostic = (result.stdout + result.stderr).strip()[-1200:]
+            raise RuntimeError(f"cannot inspect {service}: {diagnostic}")
+        payload = json.loads(result.stdout)
+        if not isinstance(payload, list) or len(payload) != 1:
+            raise RuntimeError(f"unexpected inspection result for {service}")
+        inspection = payload[0]
+        if not isinstance(inspection, dict):
+            raise RuntimeError(f"unexpected inspection object for {service}")
+        return inspection
 
     def health(self, service: str) -> str:
         container_id = self.container_id(service)
@@ -218,11 +250,15 @@ class StackHarness:
         context = ssl.create_default_context(
             cafile=str(self.root / "gateway-certs" / "ca.crt")
         )
-        return httpx.get(
-            f"https://127.0.0.1:9443{path}",
-            verify=context,
-            timeout=10,
-        )
+        try:
+            return httpx.get(
+                f"https://127.0.0.1:9443{path}",
+                verify=context,
+                timeout=10,
+            )
+        except httpx.HTTPError as error:
+            logs = self.run("logs", "--no-color", "--tail", "80", "gateway")[-3000:]
+            raise RuntimeError(f"panel request failed: {error}; gateway logs={logs}") from error
 
     def _environment_value(self, name: str) -> str:
         prefix = f"{name}="

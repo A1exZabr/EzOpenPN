@@ -7,7 +7,6 @@ import os
 import re
 import shutil
 import stat
-# Validator subprocesses use fixed argument vectors and never invoke a shell.
 import subprocess  # nosec B404
 import sys
 import tempfile
@@ -17,6 +16,8 @@ from typing import Self
 import yaml
 from jinja2 import Environment, FileSystemLoader, StrictUndefined
 from pydantic import BaseModel, ConfigDict, ValidationError, field_validator, model_validator
+
+# Validator subprocesses use fixed argument vectors and never invoke a shell.
 
 _ROOT = Path(__file__).resolve().parents[1]
 _TEMPLATE_ROOT = _ROOT / "deploy"

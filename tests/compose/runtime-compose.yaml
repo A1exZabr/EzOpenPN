@@ -17,6 +17,7 @@ services:
 
   xray:
     image: ghcr.io/xtls/xray-core:26.3.27
+    user: "0:0"
     command: ["run", "-config", "/etc/xray/config.json"]
     volumes:
       - ${RUNTIME_CONFIG_ROOT}/xray/config.json:/etc/xray/config.json:ro
@@ -26,6 +27,7 @@ services:
 
   hysteria:
     image: tobyxdd/hysteria:v2.12.2
+    user: "0:0"
     command:
       - server
       - -c
@@ -41,6 +43,7 @@ services:
 
   client:
     image: tobyxdd/hysteria:v2.12.2
+    user: "0:0"
     restart: on-failure
     command:
       - client

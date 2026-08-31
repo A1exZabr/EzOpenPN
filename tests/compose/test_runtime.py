@@ -21,6 +21,12 @@ from ezopenpn.integrations.xray import GrpcXrayClient
 _ROOT = Path(__file__).resolve().parents[2]
 _COMPOSE_FILE = _ROOT / "tests" / "compose" / "runtime-compose.yaml"
 _RUNTIME_ID = "p_abcdefghijklmnopqrstuvwx23"
+_TEST_VALUES_TO_REDACT = (
+    "profile-auth-value-1234",
+    "test-obfs-value-1234",
+    "test-stats-value-5678",
+    "UG2LfxKeyggwo4VTtVe2jycx85N1csWWomkiPdqE-nc",
+)
 
 
 def _values() -> dict[str, object]:
@@ -183,7 +189,10 @@ def _run(command: list[str], *, environment: dict[str, str]) -> str:
         timeout=180,
     )
     if result.returncode != 0:
-        raise RuntimeError("runtime integration command failed")
+        diagnostic = "\n".join((result.stdout, result.stderr)).strip()[-2000:]
+        for value in _TEST_VALUES_TO_REDACT:
+            diagnostic = diagnostic.replace(value, "<redacted>")
+        raise RuntimeError(f"runtime integration command failed: {diagnostic}")
     return result.stdout.strip()
 
 

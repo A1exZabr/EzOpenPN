@@ -307,6 +307,45 @@ def _copy_to_guest(key: Path, port: int, source: Path, destination: str) -> None
     )
 
 
+def _collect_failure_diagnostics(
+    key: Path,
+    port: int,
+    secrets_to_redact: tuple[str, ...],
+) -> None:
+    inspect_format = (
+        "{{.Name}} status={{.State.Status}} "
+        "health={{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}} "
+        "exit={{.State.ExitCode}} error={{json .State.Error}}"
+    )
+    command = """set +e
+printf '%s\\n' '[vm] failure diagnostics'
+if command -v docker >/dev/null 2>&1; then
+  sudo docker ps -a \
+    --filter label=com.docker.compose.project=ezopenpn \
+    --format 'table {{.Names}}\\t{{.Status}}\\t{{.Image}}'
+  for container in $(sudo docker ps -aq \
+    --filter label=com.docker.compose.project=ezopenpn); do
+    sudo docker inspect --format __INSPECT_FORMAT__ "$container"
+  done
+fi
+if command -v ezopenpn >/dev/null 2>&1; then
+  for service in control xray hysteria gateway cert-sync; do
+    printf '\\n[vm] sanitized %s logs\\n' "$service"
+    sudo ezopenpn logs "$service" --since 3600 --tail 120
+  done
+fi
+exit 0""".replace("__INSPECT_FORMAT__", shlex.quote(inspect_format))
+    _ssh(
+        key,
+        port,
+        command,
+        label="collect failure diagnostics",
+        timeout=90,
+        secrets_to_redact=secrets_to_redact,
+        print_output=True,
+    )
+
+
 def _wait_for_ssh(process: subprocess.Popen[bytes], key: Path, port: int) -> None:
     deadline = time.monotonic() + 420
     while time.monotonic() < deadline:
@@ -673,6 +712,17 @@ def run_system(system: str, bundle: Path, output: Path, cache: Path) -> None:
                 registry_user,
             )
         except BaseException:
+            try:
+                _collect_failure_diagnostics(
+                    private_key,
+                    port,
+                    (registry_token,),
+                )
+            except VmRunError as diagnostic_error:
+                print(
+                    f"[vm] failure diagnostics unavailable: {diagnostic_error}",
+                    file=sys.stderr,
+                )
             console.flush()
             try:
                 lines = (work / "console.log").read_text(

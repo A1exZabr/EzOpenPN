@@ -6,6 +6,7 @@ import sys
 import tomllib
 from pathlib import Path
 from types import ModuleType
+from typing import Any
 
 ROOT = Path(__file__).resolve().parents[2]
 EXPECTED_SYSTEMS = {
@@ -87,3 +88,33 @@ def test_vm_workflow_is_manual_and_runs_every_system() -> None:
     assert "tests/vm/runner.py" in workflow
     for system in EXPECTED_SYSTEMS:
         assert system in workflow
+
+
+def test_vm_failure_diagnostics_capture_sanitized_service_evidence(
+    monkeypatch: Any,
+) -> None:
+    runner = _runner_module()
+    calls: list[tuple[str, dict[str, Any]]] = []
+
+    def fake_ssh(
+        _key: Path,
+        _port: int,
+        remote_command: str,
+        **kwargs: Any,
+    ) -> str:
+        calls.append((remote_command, kwargs))
+        return ""
+
+    monkeypatch.setattr(runner, "_ssh", fake_ssh)
+
+    runner._collect_failure_diagnostics(Path("/tmp/key"), 22022, ("registry-secret",))
+
+    assert len(calls) == 1
+    command, kwargs = calls[0]
+    assert "for service in control xray hysteria gateway cert-sync" in command
+    assert 'ezopenpn logs "$service"' in command
+    assert "docker inspect" in command
+    assert "table {{.Names}}" in command
+    assert "docker compose config" not in command
+    assert kwargs["secrets_to_redact"] == ("registry-secret",)
+    assert kwargs["print_output"] is True

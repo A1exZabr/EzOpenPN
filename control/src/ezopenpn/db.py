@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import sqlite3
 from collections.abc import Iterator
 from contextlib import contextmanager
@@ -11,8 +12,7 @@ from sqlalchemy import URL, Engine, create_engine, event, text
 from sqlalchemy.engine.interfaces import DBAPIConnection
 from sqlalchemy.orm import Session
 
-_CONTROL_ROOT = Path(__file__).resolve().parents[2]
-_MIGRATION_ROOT = _CONTROL_ROOT / "migrations"
+_SOURCE_CONTROL_ROOT = Path(__file__).resolve().parents[2]
 
 
 @event.listens_for(Engine, "connect")
@@ -55,9 +55,18 @@ def session_scope(engine: Engine) -> Iterator[Session]:
             raise
 
 
+def _control_root() -> Path:
+    configured = os.environ.get("EZOPENPN_CONTROL_ROOT")
+    root = Path(configured) if configured is not None else _SOURCE_CONTROL_ROOT
+    if not root.is_absolute():
+        raise ValueError("control root must be absolute")
+    return root
+
+
 def _alembic_config(path: Path) -> Config:
-    configuration = Config(str(_CONTROL_ROOT / "alembic.ini"))
-    configuration.set_main_option("script_location", str(_MIGRATION_ROOT))
+    control_root = _control_root()
+    configuration = Config(str(control_root / "alembic.ini"))
+    configuration.set_main_option("script_location", str(control_root / "migrations"))
     configuration.set_main_option(
         "sqlalchemy.url", _database_url(path).render_as_string(hide_password=False)
     )

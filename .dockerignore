@@ -1,0 +1,14 @@
+.git
+.github
+.worktrees
+.venv
+.coverage
+.mypy_cache
+.pytest_cache
+.ruff_cache
+__pycache__
+*.pyc
+dist
+docs
+tests
+control/tests

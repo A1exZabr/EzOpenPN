@@ -129,7 +129,7 @@ def main(
         print("Хранилище недоступно.", file=error_stream)
         return EXIT_DATABASE_UNAVAILABLE
     finally:
-        password = ""
+        del password
 
     return EXIT_OK
 

@@ -1,0 +1,252 @@
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Signed tag in vMAJOR.MINOR.PATCH form
+        required: true
+        type: string
+      images_run_id:
+        description: Successful Images workflow run ID for this commit
+        required: true
+        type: string
+      evidence_run_id:
+        description: Successful evidence workflow run ID for this commit
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ inputs.tag }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build and sign release assets
+    runs-on: ubuntu-24.04
+    permissions:
+      actions: read
+      attestations: write
+      contents: read
+      id-token: write
+      packages: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+          ref: ${{ inputs.tag }}
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        with:
+          python-version: "3.12.11"
+      - name: Verify signed immutable source tag
+        env:
+          RELEASE_TAG: ${{ inputs.tag }}
+        run: |
+          [[ "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          test "$GITHUB_REF" = "refs/tags/$RELEASE_TAG"
+          test "$(git cat-file -t "refs/tags/$RELEASE_TAG")" = tag
+          test "$(git rev-parse "$RELEASE_TAG^{commit}")" = "$GITHUB_SHA"
+          git verify-tag "$RELEASE_TAG"
+      - name: Verify required source checks
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh run list --repo A1exZabr/EzOpenPN --commit "$GITHUB_SHA" \
+            --limit 30 --json workflowName,status,conclusion >"$RUNNER_TEMP/source-runs.json"
+          python - "$RUNNER_TEMP/source-runs.json" <<'PY'
+          import json
+          import sys
+
+          runs = json.load(open(sys.argv[1], encoding="utf-8"))
+          successful = {
+              run["workflowName"]
+              for run in runs
+              if run["status"] == "completed" and run["conclusion"] == "success"
+          }
+          missing = {"CI", "CodeQL"} - successful
+          if missing:
+              raise SystemExit("required source checks did not pass")
+          PY
+      - name: Install locked release tools
+        run: |
+          python -m pip install --disable-pip-version-check uv==0.12.7
+          bash tools/lock_toolchain.sh --install "$RUNNER_TEMP/ezopenpn-tools" cosign syft
+          echo "$RUNNER_TEMP/ezopenpn-tools/bin" >> "$GITHUB_PATH"
+      - name: Download verified image manifest
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: images-release-${{ github.sha }}
+          path: image-evidence
+          run-id: ${{ inputs.images_run_id }}
+          github-token: ${{ github.token }}
+      - name: Download external evidence
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: release-evidence-${{ github.sha }}
+          path: release-evidence
+          run-id: ${{ inputs.evidence_run_id }}
+          github-token: ${{ github.token }}
+      - name: Verify image and network evidence
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REGISTRY_TOKEN: ${{ github.token }}
+        run: |
+          [[ "${{ inputs.images_run_id }}" =~ ^[0-9]+$ ]]
+          [[ "${{ inputs.evidence_run_id }}" =~ ^[0-9]+$ ]]
+          echo "$REGISTRY_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+          bash tools/verify_image_attestations.sh \
+            --manifest image-evidence/images.release.json \
+            --sbom-dir "$GITHUB_WORKSPACE/image-evidence/artifacts/sbom"
+          python tests/release/validate_evidence.py release-evidence
+      - name: Build deterministic bundle and SPDX SBOM
+        env:
+          RELEASE_TAG: ${{ inputs.tag }}
+        run: |
+          SOURCE_DATE_EPOCH="$(git show -s --format=%ct "$GITHUB_SHA")"
+          export SOURCE_DATE_EPOCH
+          bash tools/build_release.sh \
+            --version "$RELEASE_TAG" \
+            --source-commit "$GITHUB_SHA" \
+            --images-manifest image-evidence/images.release.json \
+            --output "$GITHUB_WORKSPACE/dist"
+          extracted="$(mktemp -d "$RUNNER_TEMP/ezopenpn-release-sbom.XXXXXXXX")"
+          tar -xzf dist/ezopenpn-bundle.tar.gz -C "$extracted"
+          syft "dir:$extracted" --output spdx-json >dist/ezopenpn-bundle.spdx.json
+          bash tools/verify_release.sh dist
+      - name: Sign bundle and checksums with GitHub OIDC
+        run: |
+          cosign sign-blob --yes \
+            --bundle dist/ezopenpn-bundle.sigstore.json \
+            --output-signature dist/ezopenpn-bundle.sig \
+            --output-certificate dist/ezopenpn-bundle.pem \
+            dist/ezopenpn-bundle.tar.gz
+          cosign sign-blob --yes \
+            --bundle dist/SHA256SUMS.sigstore.json \
+            --output-signature dist/SHA256SUMS.sig \
+            --output-certificate dist/SHA256SUMS.pem \
+            dist/SHA256SUMS
+      - name: Attach GitHub provenance
+        id: provenance
+        uses: actions/attest-build-provenance@977bb373ede98d70efdf65b84cb5f73e068dcc2a
+        with:
+          subject-path: dist/ezopenpn-bundle.tar.gz
+      - name: Attach GitHub SBOM attestation
+        id: sbom-attestation
+        uses: actions/attest-sbom@4651f806c01d8637787e274ac3bdf724ef169f34
+        with:
+          subject-path: dist/ezopenpn-bundle.tar.gz
+          sbom-path: dist/ezopenpn-bundle.spdx.json
+      - name: Preserve attestation bundles and verify signatures
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cp "${{ steps.provenance.outputs.bundle-path }}" \
+            dist/ezopenpn-bundle.provenance.json
+          cp "${{ steps.sbom-attestation.outputs.bundle-path }}" \
+            dist/ezopenpn-bundle.sbom-attestation.json
+          bash tools/verify_release.sh --signed dist
+      - name: Upload signed release assets
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: signed-release-${{ inputs.tag }}
+          path: dist
+          if-no-files-found: error
+          retention-days: 30
+
+  draft:
+    name: Create private draft release
+    needs: build
+    runs-on: ubuntu-24.04
+    permissions:
+      actions: read
+      contents: write
+    steps:
+      - name: Download signed assets
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: signed-release-${{ inputs.tag }}
+          path: assets
+      - name: Create draft
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.tag }}
+        run: |
+          if gh release view "$RELEASE_TAG" --repo A1exZabr/EzOpenPN >/dev/null 2>&1; then
+            echo "release already exists" >&2
+            exit 1
+          fi
+          gh release create "$RELEASE_TAG" assets/* \
+            --repo A1exZabr/EzOpenPN \
+            --verify-tag \
+            --draft \
+            --title "EzOpenPN $RELEASE_TAG" \
+            --notes "Проверенный выпуск EzOpenPN. Начните с install.sh и документации."
+
+  verify-draft:
+    name: Verify downloaded draft assets
+    needs: draft
+    runs-on: ubuntu-24.04
+    permissions:
+      actions: read
+      attestations: read
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ inputs.tag }}
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        with:
+          python-version: "3.12.11"
+      - name: Install locked verification tools
+        run: |
+          python -m pip install --disable-pip-version-check uv==0.12.7
+          bash tools/lock_toolchain.sh --install "$RUNNER_TEMP/ezopenpn-tools" cosign
+          echo "$RUNNER_TEMP/ezopenpn-tools/bin" >> "$GITHUB_PATH"
+      - name: Download expected signed assets
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: signed-release-${{ inputs.tag }}
+          path: expected
+      - name: Download and independently verify draft
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.tag }}
+        run: |
+          install -d -m 0700 downloaded
+          gh release download "$RELEASE_TAG" \
+            --repo A1exZabr/EzOpenPN \
+            --dir downloaded
+          python - expected downloaded <<'PY'
+          import hashlib
+          import sys
+          from pathlib import Path
+
+          expected = Path(sys.argv[1])
+          actual = Path(sys.argv[2])
+          expected_files = {path.name: path for path in expected.iterdir() if path.is_file()}
+          actual_files = {path.name: path for path in actual.iterdir() if path.is_file()}
+          if set(expected_files) != set(actual_files):
+              raise SystemExit("draft release asset set changed")
+          for name in expected_files:
+              first = hashlib.sha256(expected_files[name].read_bytes()).digest()
+              second = hashlib.sha256(actual_files[name].read_bytes()).digest()
+              if first != second:
+                  raise SystemExit("draft release asset changed")
+          PY
+          bash tools/verify_release.sh --signed downloaded
+
+  publish:
+    name: Publish verified release
+    needs: verify-draft
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - name: Publish as latest only after remote verification
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.tag }}
+        run: gh release edit "$RELEASE_TAG" --repo A1exZabr/EzOpenPN --draft=false --latest

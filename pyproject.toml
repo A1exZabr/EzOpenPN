@@ -1,0 +1,72 @@
+[project]
+name = "ezopenpn"
+version = "0.1.0"
+description = "Самостоятельный сервер защищённых подключений"
+readme = "README.md"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+  "alembic==1.19.1",
+  "argon2-cffi==25.1.0",
+  "fastapi==0.141.1",
+  "grpcio==1.83.1",
+  "httpx==0.28.1",
+  "jinja2==3.1.6",
+  "protobuf==7.36.0",
+  "pydantic-settings==2.15.0",
+  "pynacl==1.6.2",
+  "python-multipart==0.0.32",
+  "segno==1.6.6",
+  "sqlalchemy==2.0.52",
+  "uvicorn==0.52.4",
+]
+
+[dependency-groups]
+dev = [
+  "bandit==1.9.4",
+  "grpcio-tools==1.83.1",
+  "mypy==2.3.1",
+  "pip-audit==2.10.1",
+  "pytest==9.1.1",
+  "pytest-asyncio==1.4.0",
+  "pytest-cov==7.1.0",
+  "respx==0.23.1",
+  "ruff==0.16.5",
+]
+
+[build-system]
+requires = ["uv_build>=0.12.7,<0.13.0"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-root = "control/src"
+
+[tool.pytest.ini_options]
+addopts = "--strict-config --strict-markers"
+testpaths = ["control/tests"]
+pythonpath = ["."]
+asyncio_mode = "strict"
+
+[tool.coverage.run]
+branch = true
+source = ["ezopenpn"]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = true
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+src = ["control/src", "control/tests", "tools"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "SIM", "UP"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+mypy_path = "control/src"
+files = ["control/src/ezopenpn"]
+
+[tool.bandit]
+exclude_dirs = ["control/tests"]

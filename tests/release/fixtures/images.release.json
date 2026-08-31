@@ -1,0 +1,36 @@
+{
+  "schema": 1,
+  "source": {
+    "repository": "A1exZabr/EzOpenPN",
+    "commit": "0123456789abcdef0123456789abcdef01234567"
+  },
+  "images": [
+    {
+      "name": "cert-sync",
+      "reference": "ghcr.io/a1exzabr/ezopenpn-cert-sync",
+      "digest": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+      "sbom_path": "cert-sync.spdx.json",
+      "sbom_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "provenance_subject": "ghcr.io/a1exzabr/ezopenpn-cert-sync@sha256:3333333333333333333333333333333333333333333333333333333333333333",
+      "workflow_identity": "https://github.com/A1exZabr/EzOpenPN/.github/workflows/images.yml@refs/heads/fixture"
+    },
+    {
+      "name": "control",
+      "reference": "ghcr.io/a1exzabr/ezopenpn-control",
+      "digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+      "sbom_path": "control.spdx.json",
+      "sbom_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "provenance_subject": "ghcr.io/a1exzabr/ezopenpn-control@sha256:1111111111111111111111111111111111111111111111111111111111111111",
+      "workflow_identity": "https://github.com/A1exZabr/EzOpenPN/.github/workflows/images.yml@refs/heads/fixture"
+    },
+    {
+      "name": "xray",
+      "reference": "ghcr.io/a1exzabr/ezopenpn-xray",
+      "digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+      "sbom_path": "xray.spdx.json",
+      "sbom_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "provenance_subject": "ghcr.io/a1exzabr/ezopenpn-xray@sha256:2222222222222222222222222222222222222222222222222222222222222222",
+      "workflow_identity": "https://github.com/A1exZabr/EzOpenPN/.github/workflows/images.yml@refs/heads/fixture"
+    }
+  ]
+}

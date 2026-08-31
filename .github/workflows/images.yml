@@ -1,0 +1,205 @@
+name: Images
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_commit:
+        description: Exact tested commit to build
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: images-${{ inputs.source_commit }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build ${{ matrix.name }}
+    runs-on: ubuntu-24.04
+    permissions:
+      attestations: write
+      contents: read
+      id-token: write
+      packages: write
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - name: control
+            dockerfile: control/Dockerfile
+          - name: xray
+            dockerfile: runtime/Dockerfile.xray
+          - name: cert-sync
+            dockerfile: runtime/Dockerfile.cert-sync
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ inputs.source_commit }}
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        with:
+          python-version: "3.12.11"
+      - name: Confirm immutable source
+        env:
+          SOURCE_COMMIT: ${{ inputs.source_commit }}
+        run: |
+          [[ "$SOURCE_COMMIT" =~ ^[0-9a-f]{40}$ ]]
+          test "$(git rev-parse HEAD)" = "$SOURCE_COMMIT"
+          test "$GITHUB_SHA" = "$SOURCE_COMMIT"
+      - name: Install locked build tools
+        run: |
+          python -m pip install --disable-pip-version-check uv==0.12.7
+          bash tools/lock_toolchain.sh --install "$RUNNER_TEMP/ezopenpn-tools" cosign syft
+          echo "$RUNNER_TEMP/ezopenpn-tools/bin" >> "$GITHUB_PATH"
+      - name: Authenticate to the package registry
+        env:
+          REGISTRY_TOKEN: ${{ github.token }}
+        run: echo "$REGISTRY_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+      - name: Build once and generate SPDX SBOM
+        id: image
+        env:
+          IMAGE_NAME: ${{ matrix.name }}
+          DOCKERFILE: ${{ matrix.dockerfile }}
+          SOURCE_COMMIT: ${{ inputs.source_commit }}
+          WORKFLOW_IDENTITY: https://github.com/${{ github.workflow_ref }}
+        run: |
+          reference="ghcr.io/a1exzabr/ezopenpn-${IMAGE_NAME}"
+          artifact="$RUNNER_TEMP/image-artifact"
+          install -d -m 0700 "$artifact/sbom" "$artifact/manifest-fragments"
+          docker buildx build \
+            --platform linux/amd64 \
+            --file "$DOCKERFILE" \
+            --tag "${reference}:sha-${SOURCE_COMMIT}" \
+            --provenance=false \
+            --sbom=false \
+            --push \
+            --metadata-file "$RUNNER_TEMP/build-metadata.json" \
+            .
+          digest="$(python -c 'import json,sys; print(json.load(open(sys.argv[1]))["containerimage.digest"])' "$RUNNER_TEMP/build-metadata.json")"
+          [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]]
+          sbom="$artifact/sbom/${IMAGE_NAME}.spdx.json"
+          syft "${reference}@${digest}" --output spdx-json >"$sbom"
+          sbom_sha256="$(sha256sum "$sbom" | awk '{print $1}')"
+          REFERENCE="$reference" DIGEST="$digest" SBOM_SHA256="$sbom_sha256" \
+            python - "$artifact/manifest-fragments/${IMAGE_NAME}.json" <<'PY'
+          import json
+          import os
+          import sys
+
+          name = os.environ["IMAGE_NAME"]
+          reference = os.environ["REFERENCE"]
+          digest = os.environ["DIGEST"]
+          payload = {
+              "name": name,
+              "reference": reference,
+              "digest": digest,
+              "sbom_path": f"{name}.spdx.json",
+              "sbom_sha256": os.environ["SBOM_SHA256"],
+              "provenance_subject": f"{reference}@{digest}",
+              "workflow_identity": os.environ["WORKFLOW_IDENTITY"],
+          }
+          with open(sys.argv[1], "w", encoding="utf-8") as stream:
+              json.dump(payload, stream, indent=2, sort_keys=True)
+              stream.write("\n")
+          PY
+          {
+            echo "reference=$reference"
+            echo "digest=$digest"
+            echo "sbom=$sbom"
+            echo "artifact=$artifact"
+          } >> "$GITHUB_OUTPUT"
+      - name: Sign immutable image
+        env:
+          SUBJECT: ${{ steps.image.outputs.reference }}@${{ steps.image.outputs.digest }}
+        run: cosign sign --yes "$SUBJECT"
+      - name: Attach GitHub provenance
+        uses: actions/attest-build-provenance@977bb373ede98d70efdf65b84cb5f73e068dcc2a
+        with:
+          subject-name: ${{ steps.image.outputs.reference }}
+          subject-digest: ${{ steps.image.outputs.digest }}
+          push-to-registry: true
+      - name: Attach SPDX SBOM attestation
+        uses: actions/attest-sbom@4651f806c01d8637787e274ac3bdf724ef169f34
+        with:
+          subject-name: ${{ steps.image.outputs.reference }}
+          subject-digest: ${{ steps.image.outputs.digest }}
+          sbom-path: ${{ steps.image.outputs.sbom }}
+          push-to-registry: true
+      - name: Upload image evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: image-${{ matrix.name }}
+          path: ${{ steps.image.outputs.artifact }}
+          if-no-files-found: error
+          retention-days: 14
+
+  verify:
+    name: Verify signed images
+    needs: build
+    runs-on: ubuntu-24.04
+    permissions:
+      attestations: read
+      contents: read
+      packages: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ inputs.source_commit }}
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        with:
+          python-version: "3.12.11"
+      - name: Install locked verification tools
+        run: |
+          python -m pip install --disable-pip-version-check uv==0.12.7
+          bash tools/lock_toolchain.sh --install "$RUNNER_TEMP/ezopenpn-tools" cosign
+          echo "$RUNNER_TEMP/ezopenpn-tools/bin" >> "$GITHUB_PATH"
+      - name: Download image evidence
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          pattern: image-*
+          path: artifacts
+          merge-multiple: true
+      - name: Assemble release image manifest
+        env:
+          SOURCE_COMMIT: ${{ inputs.source_commit }}
+        run: |
+          python - "$SOURCE_COMMIT" artifacts/manifest-fragments images.release.json <<'PY'
+          import json
+          import sys
+          from pathlib import Path
+
+          commit, fragments_path, output_path = sys.argv[1:]
+          fragments = Path(fragments_path)
+          images = [
+              json.loads(path.read_text(encoding="utf-8"))
+              for path in sorted(fragments.glob("*.json"))
+          ]
+          payload = {
+              "schema": 1,
+              "source": {"repository": "A1exZabr/EzOpenPN", "commit": commit},
+              "images": images,
+          }
+          Path(output_path).write_text(
+              json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+          )
+          PY
+      - name: Authenticate and verify signatures and provenance
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REGISTRY_TOKEN: ${{ github.token }}
+        run: |
+          echo "$REGISTRY_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+          bash tools/verify_image_attestations.sh \
+            --manifest images.release.json \
+            --sbom-dir "$GITHUB_WORKSPACE/artifacts/sbom"
+      - name: Upload verified image manifest
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: images-release-${{ inputs.source_commit }}
+          path: |
+            images.release.json
+            artifacts/sbom
+          if-no-files-found: error
+          retention-days: 30

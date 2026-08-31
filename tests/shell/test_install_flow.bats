@@ -44,6 +44,17 @@ setup() {
   [ -f "$EZOPENPN_STATE_ROOT/operations/current.json" ]
 }
 
+@test "service timeout prints sanitized diagnostics before rollback" {
+  export TEST_INSTALL_DIAGNOSTIC_OUTPUT='gateway: configuration rejected'
+
+  run _wait_service_healthy gateway 0
+
+  [ "$status" -eq 55 ]
+  [[ "$output" == *"E_HEALTH_TIMEOUT"* ]]
+  [[ "$output" == *"gateway: configuration rejected"* ]]
+  [[ "$output" == *"Диагностика gateway до отката"* ]]
+}
+
 @test "laboratory certificate requires both explicit files" {
   local certificate="${BATS_TEST_TMPDIR}/server.crt"
   printf '%s\n' placeholder >"$certificate"

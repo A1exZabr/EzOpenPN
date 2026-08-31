@@ -157,6 +157,8 @@ services:
     <<: *service-defaults
     image: "${GATEWAY_IMAGE:?GATEWAY_IMAGE is required}"
     user: "10004:11003"
+    environment:
+      PUBLIC_IP: "${PUBLIC_IP:?PUBLIC_IP is required}"
     init: true
     mem_limit: 128m
     ports:

@@ -545,11 +545,41 @@ _install_compose() {
     --project-name ezopenpn "$@"
 }
 
+_report_service_failure() {
+  local service="$1"
+  local container_id="${2:-}"
+  printf '[EzOpenPN] Диагностика %s до отката:\n' "$service" >&2
+  if [[ -n "${TEST_INSTALL_DIAGNOSTIC_OUTPUT:-}" ]]; then
+    printf '%s\n' "$TEST_INSTALL_DIAGNOSTIC_OUTPUT" >&2
+    return 0
+  fi
+
+  if [[ -n "$container_id" ]]; then
+    docker inspect --format \
+      'status={{.State.Status}} health={{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}} exit={{.State.ExitCode}} error={{json .State.Error}}' \
+      "$container_id" >&2 2>/dev/null || true
+  fi
+
+  local sanitizer="${INSTALL_RELEASE_ROOT}/installer/sanitize_logs.py"
+  if [[ ! -f "$sanitizer" || -L "$sanitizer" ]]; then
+    warn "Логи ${service} недоступны: фильтр секретов не найден."
+    return 0
+  fi
+  if ! _install_compose logs --no-color --since 3600s --tail 120 "$service" 2>&1 | \
+    python3 "$sanitizer" \
+      "$(_install_host_path /var/lib/ezopenpn/secrets/master.key)" \
+      "$(_install_host_path /var/lib/ezopenpn/secrets/hysteria-api.key)" \
+      "$(_install_host_path /var/lib/ezopenpn/secrets/hysteria-obfs.key)" \
+      "$(_install_host_path /var/lib/ezopenpn/runtime/xray/config.json)" >&2; then
+    warn "Логи ${service} не удалось отфильтровать."
+  fi
+}
+
 _wait_service_healthy() {
   local service="$1"
   local timeout_seconds="${2:-180}"
   local deadline=$((SECONDS + timeout_seconds))
-  local container_id health
+  local container_id="" health
   while (( SECONDS < deadline )); do
     container_id="$(_install_compose ps -q "$service" 2>/dev/null || true)"
     if [[ -n "$container_id" ]]; then
@@ -565,6 +595,7 @@ _wait_service_healthy() {
     fi
     sleep 2
   done
+  _report_service_failure "$service" "$container_id" || true
   die 55 "E_HEALTH_TIMEOUT: сервис ${service} не готов"
 }
 

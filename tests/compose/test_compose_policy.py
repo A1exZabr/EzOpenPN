@@ -117,6 +117,13 @@ def test_gateway_and_control_can_start_before_transports(
     assert "depends_on" not in services["control"]
 
 
+def test_gateway_receives_public_ip_required_by_caddyfile(
+    compose: dict[str, object],
+) -> None:
+    gateway = _services(compose)["gateway"]
+    assert gateway["environment"] == {"PUBLIC_IP": "203.0.113.10"}
+
+
 def test_all_container_users_are_numeric(compose: dict[str, object]) -> None:
     for service in _services(compose).values():
         user, group = str(service["user"]).split(":", 1)

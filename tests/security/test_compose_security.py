@@ -28,9 +28,12 @@ def _compose() -> dict[str, object]:
 def test_compose_has_no_secret_environment_or_labels() -> None:
     services = _compose()["services"]
     assert isinstance(services, dict)
-    for service in services.values():
+    for name, service in services.items():
         assert isinstance(service, dict)
-        assert service.get("environment", {}) == {}
+        expected_environment = (
+            {"PUBLIC_IP": "203.0.113.10"} if name == "gateway" else {}
+        )
+        assert service.get("environment", {}) == expected_environment
         assert service.get("env_file", []) == []
         assert service.get("labels", {}) == {}
         assert "docker.sock" not in json.dumps(service)

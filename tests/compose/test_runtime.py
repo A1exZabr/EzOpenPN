@@ -241,6 +241,32 @@ def _socket_ready(port: int) -> bool:
         return connection.connect_ex(("127.0.0.1", port)) == 0
 
 
+def _socks_request_ready(port: int, *, environment: dict[str, str]) -> bool:
+    result = subprocess.run(
+        [
+            "curl",
+            "--fail",
+            "--silent",
+            "--show-error",
+            "--max-time",
+            "3",
+            "--output",
+            "/dev/null",
+            "--socks5-hostname",
+            f"127.0.0.1:{port}",
+            "http://target:8080/",
+        ],
+        cwd=_ROOT,
+        env=environment,
+        stdin=subprocess.DEVNULL,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        check=False,
+        timeout=5,
+    )
+    return result.returncode == 0
+
+
 def _runtime_logs(
     compose: list[str], *, environment: dict[str, str]
 ) -> str:
@@ -379,21 +405,13 @@ def test_real_runtimes_accept_management_and_revocation(
                 f"{_runtime_logs(compose, environment=environment)}"
             ) from None
         try:
-            _run(
-                [
-                    "curl",
-                    "--fail",
-                    "--silent",
-                    "--show-error",
-                    "--socks5-hostname",
-                    f"127.0.0.1:{socks_port}",
-                    "http://target:8080/",
-                ],
-                environment=environment,
+            _wait_for(
+                lambda: _socks_request_ready(socks_port, environment=environment)
             )
-        except RuntimeError as exc:
+        except RuntimeError:
             raise RuntimeError(
-                f"{exc}; logs: {_runtime_logs(compose, environment=environment)}"
+                "runtime request did not succeed; logs: "
+                f"{_runtime_logs(compose, environment=environment)}"
             ) from None
         stats_url = f"http://127.0.0.1:{stats_port}"
         headers = {"Authorization": "test-stats-value-5678"}

@@ -11,6 +11,11 @@ sys.path.insert(0, str(_ROOT))
 
 from tools.render_runtime_config import render_runtime_configs  # noqa: E402
 
+from ezopenpn.db import create_engine_for, upgrade_database  # noqa: E402
+from ezopenpn.profiles.repository import ProfileRepository  # noqa: E402
+from ezopenpn.profiles.service import ProfileService  # noqa: E402
+from ezopenpn.security.secrets import SecretCipher  # noqa: E402
+
 _XRAY_PRIVATE_KEY = "UG2LfxKeyggwo4VTtVe2jycx85N1csWWomkiPdqE-nc"
 _XRAY_PUBLIC_KEY = "wE2G6oGHFl38mixvBv_JGbju412yeuIyc140lRKiGGM"
 
@@ -25,6 +30,28 @@ def _write(path: Path, content: str | bytes, mode: int) -> None:
     else:
         path.write_bytes(content)
     path.chmod(mode)
+
+
+def _prepare_test_profile(root: Path, master_key: bytes) -> None:
+    database_path = root / "control" / "ezopenpn.sqlite3"
+    upgrade_database(database_path)
+    engine = create_engine_for(database_path)
+    cipher = SecretCipher(master_key)
+    repository = ProfileRepository(engine, cipher)
+    auth_secret = secrets.token_bytes(32)
+    random_values = iter((auth_secret, secrets.token_bytes(32), secrets.token_bytes(17)))
+
+    def random_bytes(size: int) -> bytes:
+        value = next(random_values)
+        if len(value) != size:
+            raise ValueError("test profile random sequence is invalid")
+        return value
+
+    service = ProfileService(repository, cipher, random_bytes=random_bytes)
+    profile = service.create("Stack handshake")
+    service.mark_active(profile.profile_id)
+    _write(root / "test-client-auth", _encoded(auth_secret), 0o600)
+    database_path.chmod(0o600)
 
 
 def prepare(root: Path, state_path: Path, project: str) -> None:
@@ -47,6 +74,7 @@ def prepare(root: Path, state_path: Path, project: str) -> None:
     _write(directories["secrets"] / "master.key", master_key, 0o600)
     _write(directories["secrets"] / "hysteria-api.key", hysteria_api, 0o600)
     _write(directories["secrets"] / "hysteria-obfs.key", hysteria_obfs, 0o600)
+    _prepare_test_profile(root, master_key)
 
     control = "\n".join(
         (

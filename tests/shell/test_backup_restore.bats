@@ -179,8 +179,8 @@ PY
   archive="$(newest_archive)"
   [ -f "$archive" ]
   [ -f "${archive}.sha256" ]
-  [ "$(stat -f '%Lp' "$archive")" = 600 ]
-  [ "$(stat -f '%Lp' "${archive}.sha256")" = 600 ]
+  [ "$(python3 -c 'import os,stat,sys; print(oct(stat.S_IMODE(os.stat(sys.argv[1]).st_mode))[2:])' "$archive")" = 600 ]
+  [ "$(python3 -c 'import os,stat,sys; print(oct(stat.S_IMODE(os.stat(sys.argv[1]).st_mode))[2:])' "${archive}.sha256")" = 600 ]
   [[ "$output" == *"$archive"* ]]
   [ "$(cat "$TEST_BACKUP_SERVICE_STATE")" = running ]
 }

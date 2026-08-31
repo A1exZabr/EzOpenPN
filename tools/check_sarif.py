@@ -9,7 +9,32 @@ from pathlib import Path
 MAX_REPORT_BYTES = 64 * 1024 * 1024
 
 
-def _results(path: Path) -> list[tuple[str, str]]:
+def _location(result: dict[str, object]) -> str:
+    locations = result.get("locations", [])
+    if not isinstance(locations, list) or not locations:
+        return "unknown-location"
+    first = locations[0]
+    if not isinstance(first, dict):
+        return "unknown-location"
+    physical = first.get("physicalLocation", {})
+    if not isinstance(physical, dict):
+        return "unknown-location"
+    artifact = physical.get("artifactLocation", {})
+    region = physical.get("region", {})
+    uri = (
+        artifact.get("uri", "unknown-location")
+        if isinstance(artifact, dict)
+        else "unknown-location"
+    )
+    line = region.get("startLine") if isinstance(region, dict) else None
+    if not isinstance(uri, str) or not uri or any(character in uri for character in "\r\n\t"):
+        uri = "unknown-location"
+    if isinstance(line, int) and line > 0:
+        return f"{uri}:{line}"
+    return uri
+
+
+def _results(path: Path) -> list[tuple[str, str, str]]:
     status = path.lstat()
     if stat.S_ISLNK(status.st_mode) or not stat.S_ISREG(status.st_mode):
         raise ValueError("SARIF input must be a regular file")
@@ -18,7 +43,7 @@ def _results(path: Path) -> list[tuple[str, str]]:
     document = json.loads(path.read_text(encoding="utf-8"))
     if document.get("version") != "2.1.0" or not isinstance(document.get("runs"), list):
         raise ValueError("SARIF document is invalid")
-    findings: list[tuple[str, str]] = []
+    findings: list[tuple[str, str, str]] = []
     for run in document["runs"]:
         if not isinstance(run, dict):
             raise ValueError("SARIF run is invalid")
@@ -36,7 +61,7 @@ def _results(path: Path) -> list[tuple[str, str]]:
                 character in rule_id for character in "\r\n\t"
             ):
                 rule_id = "unknown-rule"
-            findings.append((level, rule_id))
+            findings.append((level, rule_id, _location(result)))
     return findings
 
 
@@ -58,8 +83,8 @@ def main() -> int:
         return 2
     if findings:
         print(f"CodeQL rejected {len(findings)} rule(s).", file=sys.stderr)
-        for level, rule_id in findings:
-            print(f"{level}\t{rule_id}", file=sys.stderr)
+        for level, rule_id, location in findings:
+            print(f"{level}\t{rule_id}\t{location}", file=sys.stderr)
         return 1
     print(f"CodeQL accepted {len(reports)} SARIF report(s).")
     return 0

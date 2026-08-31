@@ -2,8 +2,33 @@
 
 ARG CADDY_BASE_REPOSITORY=docker.io/library/caddy
 ARG CADDY_BASE_DIGEST=sha256:98eb57d882ccd5213d1688764db10c1ca2c58a1ca3a6717a3411ad798f7a423a
+ARG GO_BUILDER_REPOSITORY=docker.io/library/golang
+ARG GO_BUILDER_DIGEST=sha256:659cc38c1a394eeb4dd7e31fff6df128bd33444dcc7afd70e3bed5225749dbc0
+ARG CADDY_SOURCE_URL=https://github.com/caddyserver/caddy/releases/download/v2.11.4/caddy_2.11.4_src.tar.gz
+ARG CADDY_SOURCE_SHA256=sha256:e44e457ba3f2b5b8447952d2de0ae0a91b09d1a013e2521527e08b6f52acc9eb
+
+FROM ${GO_BUILDER_REPOSITORY}@${GO_BUILDER_DIGEST} AS builder
+ARG CADDY_SOURCE_URL
+ARG CADDY_SOURCE_SHA256
+ADD --checksum=${CADDY_SOURCE_SHA256} ${CADDY_SOURCE_URL} /tmp/caddy-source.tar.gz
+RUN install -d /src/caddy /out \
+    && tar -xzf /tmp/caddy-source.tar.gz -C /src/caddy
+WORKDIR /src/caddy
+RUN GOTOOLCHAIN=local GOFLAGS=-mod=mod go get \
+        golang.org/x/net@v0.56.0 \
+        golang.org/x/text@v0.39.0 \
+        google.golang.org/grpc@v1.82.1 \
+        go.opentelemetry.io/otel@v1.44.0 \
+    && GOTOOLCHAIN=local GOFLAGS=-mod=mod go mod tidy \
+    && GOTOOLCHAIN=local go mod verify \
+    && GOTOOLCHAIN=local CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
+        go build -mod=readonly -trimpath -buildvcs=false \
+        -ldflags="-s -w -buildid= -X github.com/caddyserver/caddy/v2.CustomVersion=v2.11.4-ezopenpn.1" \
+        -o /out/caddy ./cmd/caddy
 
 FROM ${CADDY_BASE_REPOSITORY}@${CADDY_BASE_DIGEST}
+COPY --from=builder /out/caddy /usr/bin/caddy
+COPY --from=builder /src/caddy/LICENSE /licenses/Caddy-Apache-2.0.txt
 RUN apk upgrade --no-cache \
     && setcap -r /usr/bin/caddy \
     && test -z "$(getcap /usr/bin/caddy)" \

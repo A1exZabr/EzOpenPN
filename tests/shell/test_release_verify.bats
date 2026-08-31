@@ -96,6 +96,27 @@ prepare_rich_manifest_fixture() {
   [[ "${lines[0]}" == *"отдельный чистый VPS"* ]]
 }
 
+@test "verified bootstrap forwards laboratory file options without evaluation" {
+  local bundle_root="${BATS_TEST_TMPDIR}/bundle"
+  printf '%s\n' \
+    '#!/usr/bin/env bash' \
+    'set -euo pipefail' \
+    'printf "%s\n" "$@" >"$EZOPENPN_TEST_EXECUTED_PATH"' \
+    >"${bundle_root}/installer/installer-main.sh"
+  chmod 0755 "${bundle_root}/installer/installer-main.sh"
+  tar -czf "${FIXTURE_SERVER}/ezopenpn-bundle.tar.gz" -C "$bundle_root" .
+  printf '%s  %s\n' \
+    "$(file_sha256 "${FIXTURE_SERVER}/ezopenpn-bundle.tar.gz")" \
+    ezopenpn-bundle.tar.gz >"${FIXTURE_SERVER}/SHA256SUMS"
+
+  run bootstrap_release \
+    --advanced-lab-certificate '/tmp/certificate file.pem' \
+    --advanced-lab-key '/tmp/key file.pem'
+
+  [ "$status" -eq 0 ]
+  [ "$(cat "$EZOPENPN_TEST_EXECUTED_PATH")" = $'--advanced-lab-certificate\n/tmp/certificate file.pem\n--advanced-lab-key\n/tmp/key file.pem' ]
+}
+
 @test "modified bundle is rejected before execution" {
   printf '%s' tamper >>"${FIXTURE_SERVER}/ezopenpn-bundle.tar.gz"
 

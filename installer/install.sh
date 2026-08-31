@@ -236,14 +236,14 @@ bootstrap_release() (
       LANG=C.UTF-8 \
       EZOPENPN_BUNDLE_ROOT="$extracted" \
       EZOPENPN_TEST_EXECUTED_PATH="${EZOPENPN_TEST_EXECUTED_PATH:-}" \
-      bash --noprofile --norc "$installer_main"
+      bash --noprofile --norc "$installer_main" "$@"
   else
     env -i \
       PATH="/usr/sbin:/usr/bin:/sbin:/bin" \
       HOME=/root \
       LANG=C.UTF-8 \
       EZOPENPN_BUNDLE_ROOT="$extracted" \
-      bash --noprofile --norc "$installer_main"
+      bash --noprofile --norc "$installer_main" "$@"
   fi
 )
 

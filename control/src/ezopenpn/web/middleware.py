@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from ipaddress import ip_address
+from socket import SOCK_STREAM, getaddrinfo
 from uuid import uuid4
 
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
@@ -18,9 +19,30 @@ _COMMERCE_PERMISSION = "".join(
 )
 
 
+def _is_trusted_proxy(direct: str, trusted_hosts: frozenset[str]) -> bool:
+    if direct in trusted_hosts:
+        return True
+    try:
+        direct_address = ip_address(direct)
+    except ValueError:
+        return False
+    for trusted_host in trusted_hosts:
+        try:
+            resolved = getaddrinfo(trusted_host, None, type=SOCK_STREAM)
+        except OSError:
+            continue
+        for address_info in resolved:
+            try:
+                if ip_address(address_info[4][0]) == direct_address:
+                    return True
+            except ValueError:
+                continue
+    return False
+
+
 def _forwarded_client(request: Request, trusted_hosts: frozenset[str]) -> str:
     direct = request.client.host if request.client is not None else "unknown"
-    if direct not in trusted_hosts:
+    if not _is_trusted_proxy(direct, trusted_hosts):
         return direct
     forwarded = request.headers.get("x-forwarded-for", "").strip()
     if not forwarded or "," in forwarded:

@@ -1,6 +1,24 @@
 from starlette.testclient import TestClient
 
 
+def test_resolved_gateway_address_is_trusted(web_app, monkeypatch) -> None:
+    monkeypatch.setattr(
+        "ezopenpn.web.middleware.getaddrinfo",
+        lambda *_args, **_kwargs: [(2, 1, 6, "", ("172.19.0.8", 0))],
+        raising=False,
+    )
+    with TestClient(
+        web_app,
+        base_url="https://203.0.113.10:9443",
+        client=("172.19.0.8", 50000),
+    ) as client:
+        response = client.get(
+            "/health/live", headers={"x-forwarded-for": "198.51.100.7"}
+        )
+
+    assert response.headers["x-observed-client"] == "198.51.100.7"
+
+
 def test_untrusted_forwarded_address_is_ignored(web_app) -> None:
     with TestClient(
         web_app,

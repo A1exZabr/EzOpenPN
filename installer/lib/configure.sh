@@ -413,7 +413,7 @@ render_server_configuration() {
   fi
 
   _configure_chown root:10001 "${etc_root}/control.toml"
-  _configure_chown root:10004 "${etc_root}/Caddyfile"
+  _configure_chown root:11003 "${etc_root}/Caddyfile"
   _configure_chown root:root "${etc_root}/compose.yaml"
   _configure_chown 10002:11001 "${runtime_root}/xray/config.json"
   _configure_chown 10003:11003 "${runtime_root}/hysteria/config.yaml"

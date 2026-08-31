@@ -509,7 +509,7 @@ _install_laboratory_certificate() {
   _configure_chown 10004:11003 "${laboratory_root}/server.key"
   install -m 0640 "${INSTALL_RELEASE_ROOT}/installer/lab/Caddyfile" \
     "$(_install_host_path /etc/ezopenpn/Caddyfile)"
-  _configure_chown root:10004 "$(_install_host_path /etc/ezopenpn/Caddyfile)"
+  _configure_chown root:11003 "$(_install_host_path /etc/ezopenpn/Caddyfile)"
 }
 
 _validate_laboratory_pair() {

@@ -7,7 +7,7 @@ Host ownership and modes:
 | Path | Owner | Mode | Purpose |
 | --- | --- | --- | --- |
 | `/etc/ezopenpn/control.toml` | `root:10001` | `0640` | Non-secret control settings |
-| `/etc/ezopenpn/Caddyfile` | `root:10004` | `0640` | Gateway policy |
+| `/etc/ezopenpn/Caddyfile` | `root:11003` | `0640` | Gateway policy |
 | `/var/lib/ezopenpn/control` | `10001:10001` | `0700` | SQLite data |
 | `/var/lib/ezopenpn/secrets/*.key` | `10001:10001` | `0600` | Exact 32-byte secret files |
 | `/var/lib/ezopenpn/runtime/xray/config.json` | `10002:11001` | `0600` | Runtime configuration |

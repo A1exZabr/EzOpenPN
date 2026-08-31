@@ -171,6 +171,7 @@ assert "/certs/fullchain.pem" in hysteria
 PY
   [ "$(file_mode "$TEST_ROOT/etc/ezopenpn/control.toml")" = 0640 ]
   [ "$(file_mode "$TEST_ROOT/var/lib/ezopenpn/runtime/xray/config.json")" = 0600 ]
+  grep -Fq "root:11003 $TEST_ROOT/etc/ezopenpn/Caddyfile" "$TEST_CHOWN_LOG"
   cmp "$REPOSITORY_ROOT/deploy/caddy/Caddyfile" "$TEST_ROOT/etc/ezopenpn/Caddyfile"
   cmp "$REPOSITORY_ROOT/deploy/compose.yaml" "$TEST_ROOT/etc/ezopenpn/compose.yaml"
   if [[ -n "${REAL_XRAY_BIN:-}" ]]; then

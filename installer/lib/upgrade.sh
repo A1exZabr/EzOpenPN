@@ -312,7 +312,7 @@ _upgrade_install_rendered() {
     0640 root:10001 || return
   _upgrade_install_file \
     "$stage/etc/Caddyfile" "$(_backup_path /etc/ezopenpn/Caddyfile)" \
-    0640 root:10004 || return
+    0640 root:11003 || return
   _upgrade_install_file \
     "$stage/etc/compose.yaml" "$(_backup_path /etc/ezopenpn/compose.yaml)" \
     0640 root:root || return

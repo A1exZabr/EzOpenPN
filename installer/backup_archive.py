@@ -599,7 +599,7 @@ def apply_payload(root: Path, staging: Path) -> None:
             10001,
         ),
         ("configuration/control.toml", "etc/ezopenpn/control.toml", 0o640, 0, 10001),
-        ("configuration/Caddyfile", "etc/ezopenpn/Caddyfile", 0o640, 0, 10004),
+        ("configuration/Caddyfile", "etc/ezopenpn/Caddyfile", 0o640, 0, 11003),
         ("configuration/compose.yaml", "etc/ezopenpn/compose.yaml", 0o640, 0, 0),
         ("configuration/stack.env", "etc/ezopenpn/stack.env", 0o640, 0, 0),
         ("secrets/master.key", "var/lib/ezopenpn/secrets/master.key", 0o600, 10001, 10001),

@@ -366,6 +366,8 @@ class StackHarness:
             client_name,
             "--label",
             f"com.ezopenpn.stack-test={self.project}",
+            "--user",
+            f"{os.getuid()}:{os.getgid()}",
             "--network",
             f"{self.project}_backend",
             "--publish",

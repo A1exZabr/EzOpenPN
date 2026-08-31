@@ -10,7 +10,8 @@ case "$mode" in
     ;;
 esac
 
-readonly repository_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+repository_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+readonly repository_root
 readonly schema_root="$repository_root/proto/xray"
 readonly target_root="$repository_root/control/src/ezopenpn/integrations/xray_proto"
 temporary_root="$(mktemp -d "${TMPDIR:-/tmp}/ezopenpn-xray-proto.XXXXXX")"

@@ -43,7 +43,48 @@ jobs:
       - name: Check source security
         run: uv run bandit -q -c pyproject.toml -r control/src
       - name: Audit locked dependencies
-        run: uv run pip-audit
+        run: |
+          uv export --frozen --all-groups --no-emit-project \
+            --format requirements.txt --output-file "$RUNNER_TEMP/requirements.txt" --quiet
+          uv run pip-audit --strict --requirement "$RUNNER_TEMP/requirements.txt"
+
+  go:
+    name: Go
+    needs: content
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16
+        with:
+          go-version: "1.26.0"
+          cache: false
+      - name: Test helpers with the race detector
+        working-directory: runtime
+        run: go test -race ./...
+
+  shell:
+    name: Shell and documentation
+    needs: content
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        with:
+          python-version: "3.12.11"
+      - name: Install uv and locked tools
+        run: |
+          python -m pip install --disable-pip-version-check uv==0.12.7
+          bash tools/lock_toolchain.sh --install "$RUNNER_TEMP/ezopenpn-tools" \
+            actionlint bats lychee reuse shellcheck
+          echo "$RUNNER_TEMP/ezopenpn-tools/bin" >> "$GITHUB_PATH"
+      - name: Run shell and documentation gates
+        run: |
+          bats tests/shell
+          shellcheck installer/install.sh installer/installer-main.sh \
+            installer/bin/ezopenpn installer/lib/*.sh tools/*.sh tests/vm/*.sh
+          actionlint .github/workflows/*.yml
+          lychee --offline --no-progress README.md docs/*.md
+          reuse lint
 
   control-image:
     needs: content
@@ -126,3 +167,80 @@ jobs:
           uv sync --all-groups --frozen
       - name: Verify pinned transport runtimes
         run: uv run pytest -q tests/compose/test_runtime.py -m integration
+
+  dependency-audit:
+    name: Dependency audit
+    needs: content
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        with:
+          python-version: "3.12.11"
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16
+        with:
+          go-version: "1.26.0"
+          cache: false
+      - name: Install locked audit tools
+        run: |
+          python -m pip install --disable-pip-version-check uv==0.12.7
+          uv sync --all-groups --frozen
+          bash tools/lock_toolchain.sh --install "$RUNNER_TEMP/ezopenpn-tools" govulncheck
+          echo "$RUNNER_TEMP/ezopenpn-tools/bin" >> "$GITHUB_PATH"
+      - name: Audit Python and Go dependencies
+        run: |
+          uv export --frozen --all-groups --no-emit-project \
+            --format requirements.txt --output-file "$RUNNER_TEMP/requirements.txt" --quiet
+          uv run pip-audit --strict --requirement "$RUNNER_TEMP/requirements.txt"
+          cd runtime
+          govulncheck ./...
+
+  secret-scan:
+    name: Secret scan
+    needs: content
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        with:
+          python-version: "3.12.11"
+      - name: Install locked secret scanner
+        run: |
+          python -m pip install --disable-pip-version-check uv==0.12.7
+          bash tools/lock_toolchain.sh --install "$RUNNER_TEMP/ezopenpn-tools" gitleaks
+          echo "$RUNNER_TEMP/ezopenpn-tools/bin" >> "$GITHUB_PATH"
+      - name: Scan complete reachable history
+        run: gitleaks git --redact --no-banner --config .gitleaks.toml
+
+  image-scan:
+    name: Image scan
+    needs: content
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        with:
+          python-version: "3.12.11"
+      - name: Install locked image scanner
+        run: |
+          python -m pip install --disable-pip-version-check uv==0.12.7
+          bash tools/lock_toolchain.sh --install "$RUNNER_TEMP/ezopenpn-tools" trivy
+          echo "$RUNNER_TEMP/ezopenpn-tools/bin" >> "$GITHUB_PATH"
+      - name: Build immutable local images
+        run: |
+          docker build -f control/Dockerfile -t ezopenpn-control:scan .
+          docker build -f runtime/Dockerfile.xray -t ezopenpn-xray:scan .
+          docker build -f runtime/Dockerfile.cert-sync -t ezopenpn-cert-sync:scan .
+          docker build -f runtime/Dockerfile.gateway -t ezopenpn-gateway:scan .
+      - name: Reject high and critical image findings
+        run: |
+          for image in \
+            ezopenpn-control:scan \
+            ezopenpn-xray:scan \
+            ezopenpn-cert-sync:scan \
+            ezopenpn-gateway:scan; do
+            trivy image --scanners vuln --severity HIGH,CRITICAL --exit-code 1 "$image"
+          done

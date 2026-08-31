@@ -1,0 +1,11 @@
+title = "EzOpenPN secret scanning"
+
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Published deterministic Xray test key"
+regexTarget = "match"
+regexes = [
+  '''UG2LfxKeyggwo4VTtVe2jycx85N1csWWomkiPdqE-nc''',
+]

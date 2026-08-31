@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Any
 
 _MAX_INPUT_BYTES = 64 * 1024
+_BIND_ALL_IPV4 = "0.0.0.0"  # nosec B104
 _HOST_PATTERN = re.compile(
     r"(?=.{1,253}\Z)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+"
     r"[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?"
@@ -182,7 +183,7 @@ def _xray_config(values: dict[str, Any]) -> str:
         "api": {"tag": "api", "services": ["HandlerService"]},
         "inbounds": [
             {
-                "listen": "0.0.0.0",  # nosec B104
+                "listen": _BIND_ALL_IPV4,
                 "port": 8443,
                 "protocol": "vless",
                 "tag": "protected-entry",
@@ -219,7 +220,7 @@ def _xray_config(values: dict[str, Any]) -> str:
                 },
             },
             {
-                "listen": "0.0.0.0",  # nosec B104
+                "listen": _BIND_ALL_IPV4,
                 "port": 10085,
                 "protocol": "dokodemo-door",
                 "tag": "api-in",

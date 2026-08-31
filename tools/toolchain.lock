@@ -1,0 +1,72 @@
+schema = 1
+platform = "linux-amd64"
+
+[tools.actionlint]
+version = "1.7.12"
+url = "https://github.com/rhysd/actionlint/releases/download/v1.7.12/actionlint_1.7.12_linux_amd64.tar.gz"
+sha256 = "8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8"
+kind = "tar"
+binary = "actionlint"
+
+[tools.bats]
+version = "1.14.0"
+url = "https://github.com/bats-core/bats-core/archive/refs/tags/v1.14.0.tar.gz"
+sha256 = "bb537b70b15b732f6d8827dd6578e3d8ce166636ce1f18ea9a074184fcce9177"
+kind = "bats-source"
+binary = "bats-core-1.14.0/install.sh"
+
+[tools.cosign]
+version = "3.1.2"
+url = "https://github.com/sigstore/cosign/releases/download/v3.1.2/cosign-linux-amd64"
+sha256 = "f7622ed3cf22e55e1ae6377c080979ff77a22da9981c11df222a2e444991e7cf"
+kind = "file"
+binary = "cosign"
+
+[tools.gitleaks]
+version = "8.30.1"
+url = "https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/gitleaks_8.30.1_linux_x64.tar.gz"
+sha256 = "551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb"
+kind = "tar"
+binary = "gitleaks"
+
+[tools.govulncheck]
+version = "1.1.4"
+url = "https://github.com/golang/vuln/archive/refs/tags/v1.1.4.tar.gz"
+sha256 = "da1a7f3224cf874325814dd198eaa42897143fc871226a04944583cb121a15c9"
+kind = "go-source"
+binary = "vuln-1.1.4/cmd/govulncheck"
+
+[tools.lychee]
+version = "0.24.2"
+url = "https://github.com/lycheeverse/lychee/releases/download/lychee-v0.24.2/lychee-x86_64-unknown-linux-gnu.tar.gz"
+sha256 = "1f4e0ef7f6554a6ed33dd7ac144fb2e1bbed98598e7af973042fc5cd43951c9a"
+kind = "tar"
+binary = "lychee"
+
+[tools.reuse]
+version = "5.1.1"
+url = "https://files.pythonhosted.org/packages/4b/f7/b59fe851b856d0932aedbf311a3d719f30783e27af6d05bb76d77072ab8f/reuse-5.1.1.tar.gz"
+sha256 = "a13914ed8b66b8e5956e96c63203c63d72b55280d348849ccc0eb314c73248cb"
+kind = "python-source"
+binary = "reuse"
+
+[tools.shellcheck]
+version = "0.11.0"
+url = "https://github.com/koalaman/shellcheck/releases/download/v0.11.0/shellcheck-v0.11.0.linux.x86_64.tar.xz"
+sha256 = "8c3be12b05d5c177a04c29e3c78ce89ac86f1595681cab149b65b97c4e227198"
+kind = "tar"
+binary = "shellcheck-v0.11.0/shellcheck"
+
+[tools.syft]
+version = "1.51.1"
+url = "https://github.com/anchore/syft/releases/download/v1.51.1/syft_1.51.1_linux_amd64.tar.gz"
+sha256 = "8fcb33017a0dc1058298c923c436d19dfa68ae93968e0b423248542e3afb9fc3"
+kind = "tar"
+binary = "syft"
+
+[tools.trivy]
+version = "0.74.0"
+url = "https://github.com/aquasecurity/trivy/releases/download/v0.74.0/trivy_0.74.0_Linux-64bit.tar.gz"
+sha256 = "2ae6fe3ee734b7fdf11335663e18c75ea12dccc76062f09f164a3b0f8be4371a"
+kind = "tar"
+binary = "trivy"

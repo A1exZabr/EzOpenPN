@@ -6,6 +6,7 @@
 .mypy_cache/
 .cache/
 __pycache__/
+node_modules/
 *.py[cod]
 *.egg-info/
 build/

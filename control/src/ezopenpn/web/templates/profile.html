@@ -28,7 +28,7 @@
             <code id="combined-link">{{ links.combined_url }}</code>
             <button type="button" data-copy-target="combined-link">Скопировать</button>
           </div>
-          <div class="qr-code" aria-label="QR-код общей ссылки">{{ links.combined_qr_svg | safe }}</div>
+          <div class="qr-code" role="img" aria-label="QR-код общей ссылки">{{ links.combined_qr_svg | safe }}</div>
         </div>
       </article>
     {% else %}
@@ -50,7 +50,7 @@
           {% if links %}
             <code id="channel-a">{{ links.vless_link }}</code>
             <button type="button" data-copy-target="channel-a">Скопировать</button>
-            <div class="qr-code compact-qr" aria-label="QR-код канала A">{{ links.vless_qr_svg | safe }}</div>
+            <div class="qr-code compact-qr" role="img" aria-label="QR-код канала A">{{ links.vless_qr_svg | safe }}</div>
           {% else %}<p>Будет доступен после подготовки.</p>{% endif %}
         </div>
       </article>
@@ -62,7 +62,7 @@
           {% if links %}
             <code id="channel-b">{{ links.hysteria_link }}</code>
             <button type="button" data-copy-target="channel-b">Скопировать</button>
-            <div class="qr-code compact-qr" aria-label="QR-код канала B">{{ links.hysteria_qr_svg | safe }}</div>
+            <div class="qr-code compact-qr" role="img" aria-label="QR-код канала B">{{ links.hysteria_qr_svg | safe }}</div>
           {% else %}<p>Будет доступен после подготовки.</p>{% endif %}
         </div>
       </article>

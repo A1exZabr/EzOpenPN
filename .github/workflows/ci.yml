@@ -48,6 +48,34 @@ jobs:
             --format requirements.txt --output-file "$RUNNER_TEMP/requirements.txt" --quiet
           uv run pip-audit --strict --requirement "$RUNNER_TEMP/requirements.txt"
 
+  browser:
+    name: Browser and accessibility
+    needs: content
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        with:
+          python-version: "3.12.11"
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: "24.20.0"
+          package-manager-cache: false
+      - name: Install locked browser environment
+        run: |
+          python -m pip install --disable-pip-version-check uv==0.12.7
+          uv sync --all-groups --frozen
+          npm --prefix tests/browser ci --ignore-scripts
+          npm --prefix tests/browser audit --audit-level=high
+          npx --prefix tests/browser playwright install --with-deps chromium
+      - name: Verify panel workflows and safe evidence
+        run: |
+          npm --prefix tests/browser test
+          test -s docs/images/panel-login.png
+          test -s docs/images/profile-card.png
+          uv run python tools/content_guard.py docs/images
+
   go:
     name: Go
     needs: content

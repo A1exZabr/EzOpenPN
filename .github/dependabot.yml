@@ -20,6 +20,16 @@ updates:
         patterns: ["*"]
     open-pull-requests-limit: 5
 
+  - package-ecosystem: npm
+    directory: /tests/browser
+    schedule:
+      interval: weekly
+      day: monday
+    groups:
+      browser-evidence:
+        patterns: ["*"]
+    open-pull-requests-limit: 5
+
   - package-ecosystem: docker
     directory: /
     schedule:

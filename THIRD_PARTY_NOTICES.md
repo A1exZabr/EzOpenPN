@@ -6,7 +6,7 @@
 
 | Закреплённый источник | Версия | Основная лицензия | Форма использования |
 |---|---|---|---|
-| `docker.io/library/caddy` | `2.11.4-alpine` | Apache-2.0 для Caddy, лицензии Alpine packages отдельно | Базовый образ `gateway` с неизменённым бинарным Caddy |
+| `docker.io/library/caddy` | `2.11.4-alpine` | Apache-2.0 для Caddy, лицензии Alpine packages отдельно | Финальная база `gateway`; бинарный файл собирается из закреплённого source archive с обновлёнными модулями |
 | `gcr.io/distroless/base-debian12` | `nonroot` | Apache-2.0 для Distroless tooling, лицензии Debian files отдельно | Минимальный финальный образ Go helpers |
 | `docker.io/library/golang` | `1.26.7-bookworm` | BSD-3-Clause для packaging и Go, лицензии Debian files отдельно | Только стадия сборки, не входит целиком в финальный образ |
 | `docker.io/tobyxdd/hysteria` | `v2.12.2` | MIT | Неизменённый runtime-образ Hysteria2 |
@@ -50,6 +50,15 @@ Runtime Xray собирается из того же commit. Архив source �
 | `uvicorn` | 0.52.4 | BSD-3-Clause |
 
 Транзитивные Python-пакеты фиксируются в `uv.lock`; их точные версии и лицензии входят в SPDX SBOM выпуска.
+
+## Инструменты браузерной проверки
+
+| Пакет | Версия | Лицензия |
+|---|---|---|
+| `@playwright/test` | 1.62.1 | Apache-2.0 |
+| `@axe-core/playwright` | 4.13.0 | MPL-2.0 |
+
+Эти пакеты используются только при разработке и не входят в серверные образы или release bundle. Транзитивные npm-пакеты закреплены в `tests/browser/package-lock.json`.
 
 ## Go runtime helpers
 

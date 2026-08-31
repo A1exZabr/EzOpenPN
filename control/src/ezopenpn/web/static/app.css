@@ -4,7 +4,7 @@
   --muted: #5d687d;
   --cobalt: #3157d5;
   --channel: #2a9d96;
-  --alert: #c75c4a;
+  --alert: #9f382c;
   --white: #ffffff;
   --line: #d9e0ec;
   --shadow: 0 24px 70px rgba(23, 35, 60, 0.12);
@@ -525,6 +525,10 @@ code {
 
 .link-card h2 {
   margin-top: 0;
+}
+
+.link-card > .eyebrow {
+  color: #c7d2ff;
 }
 
 .link-card code {

@@ -118,3 +118,29 @@ PY
   [ ! -s "$TEST_UPGRADE_EVENTS" ]
   [ "$(readlink "$TEST_ROOT/etc/ezopenpn/current")" = releases/v0.1.0 ]
 }
+
+@test "laboratory reinstall keeps the laboratory gateway policy" {
+  local stage="${BATS_TEST_TMPDIR}/laboratory-stage"
+  mkdir -p "$stage/etc" "$TEST_UPGRADE_BUNDLE_ROOT/installer/lab"
+  printf '%s\n' 'production gateway' >"$stage/etc/Caddyfile"
+  printf '%s\n' 'laboratory gateway' \
+    >"$TEST_UPGRADE_BUNDLE_ROOT/installer/lab/Caddyfile"
+  python3 - "$TEST_ROOT/var/lib/ezopenpn/install.json" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+path = Path(sys.argv[1])
+value = json.loads(path.read_text(encoding="utf-8"))
+value["laboratory_mode"] = True
+path.write_text(json.dumps(value) + "\n", encoding="utf-8")
+PY
+  source "${REPOSITORY_ROOT}/installer/lib/backup.sh"
+  source "${REPOSITORY_ROOT}/installer/lib/upgrade.sh"
+  UPGRADE_BUNDLE_ROOT="$TEST_UPGRADE_BUNDLE_ROOT"
+
+  run _upgrade_apply_laboratory_gateway "$stage"
+
+  [ "$status" -eq 0 ]
+  [ "$(cat "$stage/etc/Caddyfile")" = 'laboratory gateway' ]
+}

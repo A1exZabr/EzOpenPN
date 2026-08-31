@@ -267,6 +267,24 @@ _upgrade_validate_candidate() {
     "$INSTALL_GATEWAY_IMAGE" adapt --config /etc/caddy/Caddyfile >/dev/null
 }
 
+_upgrade_apply_laboratory_gateway() {
+  local stage="$1"
+  local laboratory
+  laboratory="$(_upgrade_state_field laboratory_mode)" || return
+  if [[ "$laboratory" == false ]]; then
+    return 0
+  fi
+  [[ "$laboratory" == true ]] || return 1
+
+  local source="${UPGRADE_BUNDLE_ROOT}/installer/lab/Caddyfile"
+  local destination="${stage}/etc/Caddyfile"
+  if [[ ! -f "$source" || -L "$source" || ! -f "$destination" || \
+    -L "$destination" ]]; then
+    return 1
+  fi
+  install -m 0640 "$source" "$destination"
+}
+
 _upgrade_prepare_candidate() {
   local stage="$1"
   if [[ -n "${TEST_UPGRADE_PREPARE_BIN:-}" ]]; then
@@ -281,6 +299,7 @@ _upgrade_prepare_candidate() {
     --deploy-root "$UPGRADE_BUNDLE_ROOT/deploy" \
     --etc-root "$stage/etc" \
     --runtime-root "$stage/runtime" || return
+  _upgrade_apply_laboratory_gateway "$stage" || return
   _upgrade_write_environment "$stage/stack.env" || return
   _upgrade_validate_candidate "$stage"
 }

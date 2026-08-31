@@ -7,13 +7,19 @@ from uuid import UUID, uuid4
 
 from sqlalchemy import Engine, delete, select, text
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import aliased
 
 from ezopenpn.db import session_scope
 from ezopenpn.models import Profile, ProfileLookup, ProfileState
-from ezopenpn.profiles.types import NewProfileMaterial, ProfileRecord
+from ezopenpn.profiles.types import (
+    NewProfileMaterial,
+    ProfileRecord,
+    hysteria_lookup_value,
+)
 from ezopenpn.security.secrets import SecretCipher
 
-_LOOKUP_KIND = "subscription"
+_SUBSCRIPTION_LOOKUP_KIND = "subscription"
+_HYSTERIA_LOOKUP_KIND = "hysteria-auth"
 _LEGAL_TRANSITIONS = {
     ProfileState.PENDING: frozenset({ProfileState.ACTIVE, ProfileState.ERROR}),
     ProfileState.ERROR: frozenset({ProfileState.PENDING, ProfileState.DISABLED}),
@@ -84,17 +90,23 @@ class ProfileRepository:
             hysteria_secret_ciphertext=material.hysteria_secret_ciphertext,
             subscription_token_ciphertext=material.subscription_token_ciphertext,
         )
-        lookup = ProfileLookup(
+        subscription_lookup = ProfileLookup(
             id=str(uuid4()),
             profile_id=profile.id,
-            kind=_LOOKUP_KIND,
+            kind=_SUBSCRIPTION_LOOKUP_KIND,
             lookup_digest=material.subscription_lookup_digest,
+        )
+        hysteria_lookup = ProfileLookup(
+            id=str(uuid4()),
+            profile_id=profile.id,
+            kind=_HYSTERIA_LOOKUP_KIND,
+            lookup_digest=material.hysteria_lookup_digest,
         )
         try:
             with session_scope(self._engine) as session:
-                session.add_all((profile, lookup))
+                session.add_all((profile, subscription_lookup, hysteria_lookup))
                 session.flush()
-                return _record(profile, lookup.lookup_digest)
+                return _record(profile, subscription_lookup.lookup_digest)
         except IntegrityError as error:
             raise ProfileConflict("profile identifiers conflict") from error
 
@@ -105,7 +117,7 @@ class ProfileRepository:
                 .join(ProfileLookup, ProfileLookup.profile_id == Profile.id)
                 .where(
                     Profile.id == str(profile_id),
-                    ProfileLookup.kind == _LOOKUP_KIND,
+                    ProfileLookup.kind == _SUBSCRIPTION_LOOKUP_KIND,
                 )
             ).one_or_none()
             if row is None:
@@ -117,7 +129,7 @@ class ProfileRepository:
             rows = session.execute(
                 select(Profile, ProfileLookup.lookup_digest)
                 .join(ProfileLookup, ProfileLookup.profile_id == Profile.id)
-                .where(ProfileLookup.kind == _LOOKUP_KIND)
+                .where(ProfileLookup.kind == _SUBSCRIPTION_LOOKUP_KIND)
                 .order_by(Profile.created_at, Profile.id)
             ).all()
             return tuple(_record(profile, digest) for profile, digest in rows)
@@ -131,13 +143,38 @@ class ProfileRepository:
                 select(Profile, ProfileLookup.lookup_digest)
                 .join(ProfileLookup, ProfileLookup.profile_id == Profile.id)
                 .where(
-                    ProfileLookup.kind == _LOOKUP_KIND,
+                    ProfileLookup.kind == _SUBSCRIPTION_LOOKUP_KIND,
                     ProfileLookup.lookup_digest == digest,
                 )
             ).one_or_none()
             if row is None or not hmac.compare_digest(row[1], digest):
                 return None
             return _record(row[0], row[1])
+
+    def find_by_hysteria_secret(self, presented: str) -> ProfileRecord | None:
+        if not 1 <= len(presented) <= 512 or not presented.isascii():
+            return None
+        digest = self._cipher.lookup_digest(hysteria_lookup_value(presented))
+        auth_lookup = aliased(ProfileLookup)
+        subscription_lookup = aliased(ProfileLookup)
+        with session_scope(self._engine) as session:
+            row = session.execute(
+                select(
+                    Profile,
+                    auth_lookup.lookup_digest,
+                    subscription_lookup.lookup_digest,
+                )
+                .join(auth_lookup, auth_lookup.profile_id == Profile.id)
+                .join(subscription_lookup, subscription_lookup.profile_id == Profile.id)
+                .where(
+                    auth_lookup.kind == _HYSTERIA_LOOKUP_KIND,
+                    auth_lookup.lookup_digest == digest,
+                    subscription_lookup.kind == _SUBSCRIPTION_LOOKUP_KIND,
+                )
+            ).one_or_none()
+            if row is None or not hmac.compare_digest(row[1], digest):
+                return None
+            return _record(row[0], row[2])
 
     def set_state(
         self,
@@ -153,7 +190,7 @@ class ProfileRepository:
                 .join(ProfileLookup, ProfileLookup.profile_id == Profile.id)
                 .where(
                     Profile.id == str(profile_id),
-                    ProfileLookup.kind == _LOOKUP_KIND,
+                    ProfileLookup.kind == _SUBSCRIPTION_LOOKUP_KIND,
                 )
             ).one_or_none()
             if row is None:

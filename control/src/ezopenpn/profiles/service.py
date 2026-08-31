@@ -12,6 +12,7 @@ from ezopenpn.profiles.types import (
     NewProfileMaterial,
     ProfileRecord,
     ProfileResult,
+    hysteria_lookup_value,
     profile_value_context,
 )
 from ezopenpn.security.secrets import SecretCipher
@@ -75,6 +76,7 @@ class ProfileService:
         user_id = self._uuid_factory()
         hysteria_secret = _random_exact(self._random_bytes, 32)
         subscription_token = _url_token(_random_exact(self._random_bytes, 32))
+        hysteria_auth = _url_token(hysteria_secret)
         runtime_id = _runtime_id(_random_exact(self._random_bytes, 17))
         profile_key = self._cipher.new_profile_key()
         material = NewProfileMaterial(
@@ -99,6 +101,9 @@ class ProfileService:
             ),
             subscription_lookup_digest=self._cipher.lookup_digest(
                 subscription_token.encode("ascii")
+            ),
+            hysteria_lookup_digest=self._cipher.lookup_digest(
+                hysteria_lookup_value(hysteria_auth)
             ),
         )
         return _result(self.repository.insert_pending(material), subscription_token)

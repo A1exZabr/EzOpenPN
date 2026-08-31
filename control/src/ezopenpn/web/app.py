@@ -27,7 +27,7 @@ from ezopenpn.security.sessions import SessionService
 from ezopenpn.security.throttle import LoginThrottleService
 from ezopenpn.web.middleware import RequestPolicyMiddleware
 from ezopenpn.web.preauth import PreAuthService
-from ezopenpn.web.routes import auth, health, profiles, subscriptions
+from ezopenpn.web.routes import auth, health, hysteria_auth, profiles, subscriptions
 
 _WEB_ROOT = Path(__file__).resolve().parent
 _DEFAULT_CONFIG_PATH = Path("/etc/ezopenpn/control.toml")
@@ -62,6 +62,7 @@ def create_app(settings: Settings, services: WebServices) -> FastAPI:
     application.include_router(auth.router)
     application.include_router(profiles.router)
     application.include_router(subscriptions.router)
+    application.include_router(hysteria_auth.router)
     application.add_middleware(
         TrustedHostMiddleware,
         allowed_hosts=[str(settings.public_ip), "control", "localhost", "127.0.0.1"],

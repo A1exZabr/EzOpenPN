@@ -6,9 +6,17 @@ from uuid import UUID
 
 from ezopenpn.models import ProfileState
 
+_HYSTERIA_LOOKUP_PREFIX = b"ezopenpn/hysteria-auth/v1:"
+
 
 def profile_value_context(profile_id: UUID, field_name: str) -> bytes:
     return f"ezopenpn/profile/{profile_id}/{field_name}/v1".encode("ascii")
+
+
+def hysteria_lookup_value(value: str) -> bytes:
+    if not value.isascii():
+        raise ValueError("Hysteria2 lookup value must be ASCII")
+    return _HYSTERIA_LOOKUP_PREFIX + value.encode("ascii")
 
 
 @dataclass(frozen=True, slots=True)
@@ -21,6 +29,7 @@ class NewProfileMaterial:
     hysteria_secret_ciphertext: bytes = field(repr=False)
     subscription_token_ciphertext: bytes = field(repr=False)
     subscription_lookup_digest: bytes = field(repr=False)
+    hysteria_lookup_digest: bytes = field(repr=False)
 
 
 @dataclass(frozen=True, slots=True)

@@ -51,6 +51,8 @@ services:
         read_only: true
 
   gateway:
+    image: ezopenpn-gateway:test
+    pull_policy: never
     volumes:
       - type: bind
         source: ${STACK_TEST_ROOT}/caddy-data

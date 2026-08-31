@@ -158,7 +158,7 @@ services:
 
   gateway:
     <<: *service-defaults
-    image: "${CADDY_IMAGE:?CADDY_IMAGE is required}"
+    image: "${GATEWAY_IMAGE:?GATEWAY_IMAGE is required}"
     user: "10004:11003"
     init: true
     mem_limit: 128m

@@ -50,7 +50,11 @@ def test_lock_matches_declared_sources(
 
 
 def test_runtime_dockerfiles_use_only_locked_build_arguments() -> None:
-    for relative in ("runtime/Dockerfile.xray", "runtime/Dockerfile.cert-sync"):
+    for relative in (
+        "runtime/Dockerfile.xray",
+        "runtime/Dockerfile.cert-sync",
+        "runtime/Dockerfile.gateway",
+    ):
         dockerfile = (_ROOT / relative).read_text(encoding="utf-8")
         from_lines = [
             line for line in dockerfile.splitlines() if line.startswith("FROM ")
@@ -63,7 +67,13 @@ def test_final_runtime_images_are_non_root() -> None:
     expected_users = {
         "runtime/Dockerfile.xray": "USER 10002:11001",
         "runtime/Dockerfile.cert-sync": "USER 10004:11003",
+        "runtime/Dockerfile.gateway": "USER 10004:11003",
     }
     for relative, user in expected_users.items():
         dockerfile = (_ROOT / relative).read_text(encoding="utf-8")
         assert user in dockerfile
+
+
+def test_gateway_image_removes_unneeded_file_capability() -> None:
+    dockerfile = (_ROOT / "runtime" / "Dockerfile.gateway").read_text(encoding="utf-8")
+    assert "setcap -r /usr/bin/caddy" in dockerfile

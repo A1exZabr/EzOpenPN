@@ -53,6 +53,8 @@ docker build -f "${repository_root}/runtime/Dockerfile.xray" \
   -t ezopenpn-xray:test "$repository_root"
 docker build -f "${repository_root}/runtime/Dockerfile.cert-sync" \
   -t ezopenpn-cert-sync:test "$repository_root"
+docker build -f "${repository_root}/runtime/Dockerfile.gateway" \
+  -t ezopenpn-gateway:test "$repository_root"
 "${compose[@]}" config --quiet
 
 trap - ERR INT TERM

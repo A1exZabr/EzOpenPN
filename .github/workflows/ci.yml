@@ -80,8 +80,13 @@ jobs:
         run: |
           docker build -f runtime/Dockerfile.xray -t ezopenpn-xray:ci .
           docker build -f runtime/Dockerfile.cert-sync -t ezopenpn-cert-sync:ci .
+          docker build -f runtime/Dockerfile.gateway -t ezopenpn-gateway:ci .
           test "$(docker image inspect ezopenpn-xray:ci --format '{{.Config.User}}')" = "10002:11001"
           test "$(docker image inspect ezopenpn-cert-sync:ci --format '{{.Config.User}}')" = "10004:11003"
+          test "$(docker image inspect ezopenpn-gateway:ci --format '{{.Config.User}}')" = "10004:11003"
+          docker run --rm --network none --read-only \
+            --cap-drop ALL --security-opt no-new-privileges:true \
+            --entrypoint caddy ezopenpn-gateway:ci version
           if docker run --rm --entrypoint /bin/sh ezopenpn-xray:ci -c true 2>/dev/null; then
             echo "xray image unexpectedly contains a shell" >&2
             exit 1

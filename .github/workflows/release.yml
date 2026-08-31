@@ -99,7 +99,8 @@ jobs:
           echo "$REGISTRY_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
           bash tools/verify_image_attestations.sh \
             --manifest image-evidence/images.release.json \
-            --sbom-dir "$GITHUB_WORKSPACE/image-evidence/artifacts/sbom"
+            --sbom-dir "$GITHUB_WORKSPACE/image-evidence/artifacts/sbom" \
+            --provenance-dir "$GITHUB_WORKSPACE/image-evidence/artifacts/provenance"
           python tests/release/validate_evidence.py docs/releases/evidence
           python tests/release/validate_evidence.py release-evidence
           for evidence in fixed.json mobile.json clients.json; do

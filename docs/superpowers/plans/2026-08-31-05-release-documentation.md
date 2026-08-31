@@ -198,7 +198,7 @@ git commit -m "ci: enforce code and supply security gates"
 
 **Interfaces:**
 - Produces GHCR images: `ezopenpn-control`, `ezopenpn-xray`, `ezopenpn-cert-sync`, `ezopenpn-gateway`.
-- Produces per-image digest, SPDX SBOM and GitHub provenance attestation.
+- Produces per-image digest, SPDX SBOM and keyless Cosign provenance attestation in GHCR.
 
 - [ ] **Step 1: Write failing manifest tests**
 
@@ -219,7 +219,7 @@ Expected: FAIL because no release manifest fixture can be built.
 
 - [ ] **Step 3: Implement build-once and keyless signing**
 
-Build only linux/amd64 from the exact source commit, push by content digest, generate SPDX JSON with Syft, attach GitHub artifact attestations, sign with Cosign keyless OIDC and write `images.release.json`. Verify the workflow identity and repository in a separate job before exposing outputs to the bundle job. Do not push `latest` until release publication succeeds.
+Build only linux/amd64 from the exact source commit, push by content digest, generate SPDX JSON with Syft, attach SLSA provenance and SPDX attestations in GHCR, sign with Cosign keyless OIDC and write `images.release.json`. Verify the workflow identity, source commit and signed predicates in a separate job before exposing outputs to the bundle job. Do not push `latest` until release publication succeeds.
 
 - [ ] **Step 4: Run workflow lint and local manifest validation**
 

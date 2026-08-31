@@ -20,7 +20,6 @@ jobs:
     name: Build ${{ matrix.name }}
     runs-on: ubuntu-24.04
     permissions:
-      attestations: write
       contents: read
       id-token: write
       packages: write
@@ -69,7 +68,10 @@ jobs:
         run: |
           reference="ghcr.io/a1exzabr/ezopenpn-${IMAGE_NAME}"
           artifact="$RUNNER_TEMP/image-artifact"
-          install -d -m 0700 "$artifact/sbom" "$artifact/manifest-fragments"
+          install -d -m 0700 \
+            "$artifact/sbom" \
+            "$artifact/provenance" \
+            "$artifact/manifest-fragments"
           docker buildx build \
             --platform linux/amd64 \
             --file "$DOCKERFILE" \
@@ -83,6 +85,48 @@ jobs:
           [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]]
           sbom="$artifact/sbom/${IMAGE_NAME}.spdx.json"
           syft "${reference}@${digest}" --output spdx-json >"$sbom"
+          provenance="$artifact/provenance/${IMAGE_NAME}.slsa.json"
+          REFERENCE="$reference" DIGEST="$digest" PROVENANCE="$provenance" \
+            python - <<'PY'
+          import json
+          import os
+
+          commit = os.environ["SOURCE_COMMIT"]
+          identity = os.environ["WORKFLOW_IDENTITY"]
+          payload = {
+              "buildDefinition": {
+                  "buildType": "https://github.com/A1exZabr/EzOpenPN/images@v1",
+                  "externalParameters": {
+                      "dockerfile": os.environ["DOCKERFILE"],
+                      "imageName": os.environ["IMAGE_NAME"],
+                      "sourceCommit": commit,
+                  },
+                  "internalParameters": {"runnerEnvironment": "github-hosted"},
+                  "resolvedDependencies": [
+                      {
+                          "uri": (
+                              "git+https://github.com/A1exZabr/EzOpenPN@" + commit
+                          ),
+                          "digest": {"gitCommit": commit},
+                      }
+                  ],
+              },
+              "runDetails": {
+                  "builder": {"id": identity},
+                  "metadata": {
+                      "invocationId": (
+                          "https://github.com/A1exZabr/EzOpenPN/actions/runs/"
+                          + os.environ["GITHUB_RUN_ID"]
+                          + "/attempts/"
+                          + os.environ["GITHUB_RUN_ATTEMPT"]
+                      )
+                  },
+              },
+          }
+          with open(os.environ["PROVENANCE"], "w", encoding="utf-8") as stream:
+              json.dump(payload, stream, indent=2, sort_keys=True)
+              stream.write("\n")
+          PY
           sbom_sha256="$(sha256sum "$sbom" | awk '{print $1}')"
           REFERENCE="$reference" DIGEST="$digest" SBOM_SHA256="$sbom_sha256" \
             python - "$artifact/manifest-fragments/${IMAGE_NAME}.json" <<'PY'
@@ -110,25 +154,27 @@ jobs:
             echo "reference=$reference"
             echo "digest=$digest"
             echo "sbom=$sbom"
+            echo "provenance=$provenance"
             echo "artifact=$artifact"
           } >> "$GITHUB_OUTPUT"
       - name: Sign immutable image
         env:
           SUBJECT: ${{ steps.image.outputs.reference }}@${{ steps.image.outputs.digest }}
         run: cosign sign --yes "$SUBJECT"
-      - name: Attach GitHub provenance
-        uses: actions/attest-build-provenance@977bb373ede98d70efdf65b84cb5f73e068dcc2a
-        with:
-          subject-name: ${{ steps.image.outputs.reference }}
-          subject-digest: ${{ steps.image.outputs.digest }}
-          push-to-registry: true
-      - name: Attach SPDX SBOM attestation
-        uses: actions/attest-sbom@4651f806c01d8637787e274ac3bdf724ef169f34
-        with:
-          subject-name: ${{ steps.image.outputs.reference }}
-          subject-digest: ${{ steps.image.outputs.digest }}
-          sbom-path: ${{ steps.image.outputs.sbom }}
-          push-to-registry: true
+      - name: Attach registry provenance and SPDX SBOM attestations
+        env:
+          PROVENANCE: ${{ steps.image.outputs.provenance }}
+          SBOM: ${{ steps.image.outputs.sbom }}
+          SUBJECT: ${{ steps.image.outputs.reference }}@${{ steps.image.outputs.digest }}
+        run: |
+          cosign attest --yes \
+            --type slsaprovenance1 \
+            --predicate "$PROVENANCE" \
+            "$SUBJECT"
+          cosign attest --yes \
+            --type spdxjson \
+            --predicate "$SBOM" \
+            "$SUBJECT"
       - name: Upload image evidence
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
@@ -142,7 +188,6 @@ jobs:
     needs: build
     runs-on: ubuntu-24.04
     permissions:
-      attestations: read
       contents: read
       packages: read
     steps:
@@ -195,7 +240,8 @@ jobs:
           echo "$REGISTRY_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
           bash tools/verify_image_attestations.sh \
             --manifest images.release.json \
-            --sbom-dir "$GITHUB_WORKSPACE/artifacts/sbom"
+            --sbom-dir "$GITHUB_WORKSPACE/artifacts/sbom" \
+            --provenance-dir "$GITHUB_WORKSPACE/artifacts/provenance"
       - name: Upload verified image manifest
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
@@ -203,5 +249,6 @@ jobs:
           path: |
             images.release.json
             artifacts/sbom
+            artifacts/provenance
           if-no-files-found: error
           retention-days: 30

@@ -6,22 +6,29 @@ umask 077
 usage() {
   printf '%s\n' \
     'usage: tools/verify_image_attestations.sh --fixture MANIFEST' \
-    '       tools/verify_image_attestations.sh --manifest MANIFEST --sbom-dir DIRECTORY' >&2
+    '       tools/verify_image_attestations.sh --manifest MANIFEST --sbom-dir DIRECTORY --provenance-dir DIRECTORY' >&2
   exit 2
 }
 
 mode="${1:-}"
 manifest="${2:-}"
 sbom_directory=""
+provenance_directory=""
 case "$mode" in
   --fixture)
     [[ $# -eq 2 ]] || usage
     ;;
   --manifest)
-    [[ $# -eq 4 && "${3:-}" == --sbom-dir ]] || usage
+    [[ $# -eq 6 && "${3:-}" == --sbom-dir && "${5:-}" == --provenance-dir ]] \
+      || usage
     sbom_directory="${4:-}"
+    provenance_directory="${6:-}"
     [[ "$sbom_directory" == /* && -d "$sbom_directory" ]] || {
       printf '%s\n' 'SBOM directory must be an existing absolute directory' >&2
+      exit 2
+    }
+    [[ "$provenance_directory" == /* && -d "$provenance_directory" ]] || {
+      printf '%s\n' 'provenance directory must be an existing absolute directory' >&2
       exit 2
     }
     ;;
@@ -110,18 +117,21 @@ if [[ "$mode" == --fixture ]]; then
   exit 0
 fi
 
-for command_name in cosign gh; do
-  command -v "$command_name" >/dev/null 2>&1 || {
-    printf 'required verification tool is unavailable: %s\n' "$command_name" >&2
-    exit 127
-  }
-done
+command -v cosign >/dev/null 2>&1 || {
+  printf '%s\n' 'required verification tool is unavailable: cosign' >&2
+  exit 127
+}
 
 verified=0
 while IFS=$'\t' read -r name reference digest sbom_path expected_sbom subject identity commit; do
   candidate="${sbom_directory}/${sbom_path}"
+  provenance_candidate="${provenance_directory}/${name}.slsa.json"
   [[ -f "$candidate" && ! -L "$candidate" ]] || {
     printf 'SBOM is missing for %s\n' "$name" >&2
+    exit 1
+  }
+  [[ -f "$provenance_candidate" && ! -L "$provenance_candidate" ]] || {
+    printf 'provenance is missing for %s\n' "$name" >&2
     exit 1
   }
   actual_sbom="$(python3 - "$candidate" <<'PY'
@@ -148,11 +158,137 @@ PY
     --certificate-identity "$identity" \
     --certificate-oidc-issuer https://token.actions.githubusercontent.com \
     "${reference}@${digest}" >/dev/null
-  gh attestation verify "oci://${subject}" \
-    --repo A1exZabr/EzOpenPN \
-    --cert-identity "$identity" \
-    --source-digest "$commit" \
-    --deny-self-hosted-runners >/dev/null
+  verified_provenance="${temporary_root}/${name}.verified-provenance.json"
+  verified_sbom="${temporary_root}/${name}.verified-sbom.json"
+  cosign verify-attestation \
+    --certificate-identity "$identity" \
+    --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+    --type slsaprovenance1 \
+    "$subject" >"$verified_provenance"
+  cosign verify-attestation \
+    --certificate-identity "$identity" \
+    --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+    --type spdxjson \
+    "$subject" >"$verified_sbom"
+  python3 - \
+    "$name" \
+    "$reference" \
+    "$digest" \
+    "$identity" \
+    "$commit" \
+    "$provenance_candidate" \
+    "$candidate" \
+    "$verified_provenance" \
+    "$verified_sbom" <<'PY'
+import base64
+import json
+import re
+import sys
+from pathlib import Path
+
+(
+    name,
+    reference,
+    digest,
+    identity,
+    commit,
+    provenance_path,
+    sbom_path,
+    verified_provenance_path,
+    verified_sbom_path,
+) = sys.argv[1:]
+digest_hex = digest.removeprefix("sha256:")
+
+
+def verified_statements(path: str) -> list[dict[str, object]]:
+    raw = Path(path).read_text(encoding="utf-8").strip()
+    try:
+        loaded = json.loads(raw)
+    except json.JSONDecodeError:
+        loaded = [json.loads(line) for line in raw.splitlines() if line.strip()]
+    entries = loaded if isinstance(loaded, list) else [loaded]
+    statements: list[dict[str, object]] = []
+    for entry in entries:
+        if not isinstance(entry, dict) or not isinstance(entry.get("payload"), str):
+            raise SystemExit("invalid Cosign verification output")
+        decoded = base64.b64decode(entry["payload"], validate=True)
+        statement = json.loads(decoded)
+        if not isinstance(statement, dict):
+            raise SystemExit("invalid attestation statement")
+        statements.append(statement)
+    return statements
+
+
+def binds_digest(statement: dict[str, object]) -> bool:
+    subjects = statement.get("subject")
+    if not isinstance(subjects, list):
+        return False
+    return any(
+        isinstance(subject, dict)
+        and isinstance(subject.get("digest"), dict)
+        and subject["digest"].get("sha256") == digest_hex
+        for subject in subjects
+    )
+
+
+provenance = json.loads(Path(provenance_path).read_text(encoding="utf-8"))
+sbom = json.loads(Path(sbom_path).read_text(encoding="utf-8"))
+expected_dockerfiles = {
+    "control": "control/Dockerfile",
+    "xray": "runtime/Dockerfile.xray",
+    "cert-sync": "runtime/Dockerfile.cert-sync",
+    "gateway": "runtime/Dockerfile.gateway",
+}
+expected_provenance = {
+    "buildDefinition": {
+        "buildType": "https://github.com/A1exZabr/EzOpenPN/images@v1",
+        "externalParameters": {
+            "dockerfile": expected_dockerfiles[name],
+            "imageName": name,
+            "sourceCommit": commit,
+        },
+        "internalParameters": {"runnerEnvironment": "github-hosted"},
+        "resolvedDependencies": [
+            {
+                "uri": f"git+https://github.com/A1exZabr/EzOpenPN@{commit}",
+                "digest": {"gitCommit": commit},
+            }
+        ],
+    },
+    "runDetails": {
+        "builder": {"id": identity},
+        "metadata": provenance.get("runDetails", {}).get("metadata"),
+    },
+}
+if provenance != expected_provenance:
+    raise SystemExit(f"invalid provenance predicate for {name}")
+invocation = provenance["runDetails"]["metadata"].get("invocationId")
+if not isinstance(invocation, str) or re.fullmatch(
+    r"https://github\.com/A1exZabr/EzOpenPN/actions/runs/[0-9]+/attempts/[0-9]+",
+    invocation,
+) is None:
+    raise SystemExit(f"invalid provenance invocation for {name}")
+
+provenance_matches = [
+    statement
+    for statement in verified_statements(verified_provenance_path)
+    if statement.get("predicateType") == "https://slsa.dev/provenance/v1"
+    and binds_digest(statement)
+    and statement.get("predicate") == provenance
+]
+if not provenance_matches:
+    raise SystemExit(f"verified provenance does not match {name}")
+
+sbom_matches = [
+    statement
+    for statement in verified_statements(verified_sbom_path)
+    if statement.get("predicateType") == "https://spdx.dev/Document"
+    and binds_digest(statement)
+    and statement.get("predicate") == sbom
+]
+if not sbom_matches:
+    raise SystemExit(f"verified SBOM does not match {name}")
+PY
   verified=$((verified + 1))
 done <"$rows"
 

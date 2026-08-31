@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import re
 import stat
 import tomllib
 from dataclasses import dataclass, field
@@ -66,14 +67,41 @@ class ProxyTrustSettings(FrozenSettingsModel):
 class XraySettings(FrozenSettingsModel):
     grpc_target: str = "xray:10085"
     inbound_tag: str = "protected-entry"
+    reality_public_key: str
+    reality_server_name: str
+    reality_short_id: str
+    xhttp_path: str
 
-    @field_validator("grpc_target", "inbound_tag")
+    @field_validator(
+        "grpc_target",
+        "inbound_tag",
+        "reality_public_key",
+        "reality_server_name",
+    )
     @classmethod
     def require_nonempty_values(cls, value: str) -> str:
         normalized = value.strip()
         if not normalized:
             raise ValueError("Xray settings must not be empty")
         return normalized
+
+    @field_validator("reality_short_id")
+    @classmethod
+    def require_short_id(cls, value: str) -> str:
+        if re.fullmatch(r"[0-9a-f]{2,16}", value) is None:
+            raise ValueError("Reality short ID must be lowercase hexadecimal")
+        return value
+
+    @field_validator("xhttp_path")
+    @classmethod
+    def require_xhttp_path(cls, value: str) -> str:
+        if (
+            not value.startswith("/")
+            or len(value) > 256
+            or any(character in value for character in "?#\r\n")
+        ):
+            raise ValueError("XHTTP path is invalid")
+        return value
 
 
 class HysteriaSettings(FrozenSettingsModel):
@@ -98,7 +126,7 @@ class Settings(FrozenSettingsModel):
     database: DatabaseSettings
     paths: PathSettings = PathSettings()
     proxy: ProxyTrustSettings = ProxyTrustSettings()
-    xray: XraySettings = XraySettings()
+    xray: XraySettings
     hysteria: HysteriaSettings = HysteriaSettings()
     session: SessionSettings = SessionSettings()
 

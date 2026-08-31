@@ -13,6 +13,11 @@ from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from ezopenpn.config import SecretFiles, Settings
 from ezopenpn.db import create_engine_for
+from ezopenpn.profiles.links import (
+    ProfileLinkService,
+    TransportLinkConfig,
+    encode_url_secret,
+)
 from ezopenpn.profiles.repository import ProfileRepository
 from ezopenpn.profiles.runtime import FakeRuntimeCoordinator, RuntimeCoordinator
 from ezopenpn.profiles.service import ProfileService
@@ -22,7 +27,7 @@ from ezopenpn.security.sessions import SessionService
 from ezopenpn.security.throttle import LoginThrottleService
 from ezopenpn.web.middleware import RequestPolicyMiddleware
 from ezopenpn.web.preauth import PreAuthService
-from ezopenpn.web.routes import auth, health, profiles
+from ezopenpn.web.routes import auth, health, profiles, subscriptions
 
 _WEB_ROOT = Path(__file__).resolve().parent
 _DEFAULT_CONFIG_PATH = Path("/etc/ezopenpn/control.toml")
@@ -36,6 +41,7 @@ class WebServices:
     preauth: PreAuthService
     profiles: ProfileRepository
     runtime: RuntimeCoordinator
+    links: ProfileLinkService
     expose_observed_client: bool = False
 
 
@@ -55,6 +61,7 @@ def create_app(settings: Settings, services: WebServices) -> FastAPI:
     application.include_router(health.router)
     application.include_router(auth.router)
     application.include_router(profiles.router)
+    application.include_router(subscriptions.router)
     application.add_middleware(
         TrustedHostMiddleware,
         allowed_hosts=[str(settings.public_ip), "control", "localhost", "127.0.0.1"],
@@ -85,6 +92,18 @@ def create_runtime_app() -> FastAPI:
     cipher = SecretCipher(secrets.master_key)
     profile_repository = ProfileRepository(engine, cipher)
     profile_service = ProfileService(profile_repository, cipher)
+    link_service = ProfileLinkService(
+        profile_repository,
+        cipher,
+        TransportLinkConfig(
+            host=settings.public_ip,
+            reality_public_key=settings.xray.reality_public_key,
+            reality_server_name=settings.xray.reality_server_name,
+            reality_short_id=settings.xray.reality_short_id,
+            xhttp_path=settings.xray.xhttp_path,
+            hysteria_obfs_password=encode_url_secret(secrets.hysteria_obfs_secret),
+        ),
+    )
     services = WebServices(
         admins=AdminService(engine),
         sessions=SessionService(
@@ -97,5 +116,6 @@ def create_runtime_app() -> FastAPI:
         preauth=PreAuthService(engine, secrets.master_key),
         profiles=profile_repository,
         runtime=FakeRuntimeCoordinator(profile_service),
+        links=link_service,
     )
     return create_app(settings, services)

@@ -6,8 +6,9 @@ from pathlib import Path
 import pytest
 from starlette.testclient import TestClient
 
-from ezopenpn.config import AppSettings, DatabaseSettings, Settings
+from ezopenpn.config import AppSettings, DatabaseSettings, Settings, XraySettings
 from ezopenpn.db import create_engine_for, upgrade_database
+from ezopenpn.profiles.links import ProfileLinkService, TransportLinkConfig
 from ezopenpn.profiles.repository import ProfileRepository
 from ezopenpn.profiles.runtime import FakeRuntimeCoordinator
 from ezopenpn.profiles.service import ProfileService
@@ -30,6 +31,16 @@ def web_app(tmp_path: Path):
     admins.create_initial("owner", "correct passphrase")
     cipher = SecretCipher(MASTER_KEY)
     profiles = ProfileRepository(engine, cipher)
+    settings = Settings(
+        app=AppSettings(public_ip="203.0.113.10"),
+        database=DatabaseSettings(path=database),
+        xray=XraySettings(
+            reality_public_key="public-key",
+            reality_server_name="www.example.org",
+            reality_short_id="a1b2c3d4e5f60708",
+            xhttp_path="/panel-test",
+        ),
+    )
     services = WebServices(
         admins=admins,
         sessions=SessionService(engine, MASTER_KEY),
@@ -37,11 +48,19 @@ def web_app(tmp_path: Path):
         preauth=PreAuthService(engine, MASTER_KEY),
         profiles=profiles,
         runtime=FakeRuntimeCoordinator(ProfileService(profiles, cipher)),
+        links=ProfileLinkService(
+            profiles,
+            cipher,
+            TransportLinkConfig(
+                host=settings.public_ip,
+                reality_public_key=settings.xray.reality_public_key,
+                reality_server_name=settings.xray.reality_server_name,
+                reality_short_id=settings.xray.reality_short_id,
+                xhttp_path=settings.xray.xhttp_path,
+                hysteria_obfs_password="obfs-secret",
+            ),
+        ),
         expose_observed_client=True,
-    )
-    settings = Settings(
-        app=AppSettings(public_ip="203.0.113.10"),
-        database=DatabaseSettings(path=database),
     )
     return create_app(settings, services)
 

@@ -5,6 +5,13 @@ from pydantic import ValidationError
 
 from ezopenpn.config import SecretFiles, Settings
 
+_XRAY_CONFIG = (
+    '[xray]\nreality_public_key="public-key"\n'
+    'reality_server_name="www.example.org"\n'
+    'reality_short_id="a1b2c3d4e5f60708"\n'
+    'xhttp_path="/config-test"\n'
+)
+
 
 def _write_protected(path: Path, value: bytes) -> None:
     path.write_bytes(value)
@@ -14,7 +21,8 @@ def _write_protected(path: Path, value: bytes) -> None:
 def test_settings_require_absolute_paths(tmp_path: Path) -> None:
     config = tmp_path / "control.toml"
     config.write_text(
-        '[app]\npublic_ip="203.0.113.10"\ndatabase_path="relative.db"\n',
+        '[app]\npublic_ip="203.0.113.10"\ndatabase_path="relative.db"\n'
+        + _XRAY_CONFIG,
         encoding="utf-8",
     )
 
@@ -26,7 +34,8 @@ def test_settings_load_frozen_defaults(tmp_path: Path) -> None:
     config = tmp_path / "control.toml"
     config.write_text(
         '[app]\npublic_ip="203.0.113.10"\n'
-        'database_path="/var/lib/ezopenpn/state.db"\n',
+        'database_path="/var/lib/ezopenpn/state.db"\n'
+        + _XRAY_CONFIG,
         encoding="utf-8",
     )
 

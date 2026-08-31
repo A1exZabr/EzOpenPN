@@ -217,12 +217,15 @@ def create_archive(root: Path, snapshot: Path, staging: Path, archive: Path) -> 
         or not stat.S_ISDIR(stage_status.st_mode)
         or stage_status.st_uid != os.geteuid()
         or stat.S_IMODE(stage_status.st_mode) != 0o700
-        or stat.S_ISLNK(archive_parent_status.st_mode)
-        or not stat.S_ISDIR(archive_parent_status.st_mode)
-        or archive_parent_status.st_uid != os.geteuid()
-        or stat.S_IMODE(archive_parent_status.st_mode) != 0o700
     ):
         raise ArchiveError("staging directory is unsafe")
+    if (
+        stat.S_ISLNK(archive_parent_status.st_mode)
+        or not stat.S_ISDIR(archive_parent_status.st_mode)
+        or archive_parent_status.st_uid != os.geteuid()
+        or stat.S_IMODE(archive_parent_status.st_mode) & 0o022 != 0
+    ):
+        raise ArchiveError("archive destination is unsafe")
     payload = staging / "payload"
     payload.mkdir(mode=0o700)
     records: list[dict[str, object]] = []

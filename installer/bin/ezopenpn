@@ -26,6 +26,10 @@ source "${library_root}/admin.sh"
 source "${library_root}/backup.sh"
 # shellcheck disable=SC1091
 source "${library_root}/upgrade.sh"
+# shellcheck disable=SC1091
+source "${library_root}/firewall.sh"
+# shellcheck disable=SC1091
+source "${library_root}/remove.sh"
 unset library_root
 
 usage() {
@@ -38,7 +42,9 @@ usage() {
     '  ezopenpn backup' \
     '  ezopenpn restore ARCHIVE' \
     '  ezopenpn update' \
-    '  ezopenpn reinstall'
+    '  ezopenpn reinstall' \
+    '  ezopenpn uninstall' \
+    '  ezopenpn purge'
 }
 
 dispatch_logs() {
@@ -110,6 +116,14 @@ main() {
     update | reinstall)
       [[ $# -eq 1 ]] || { usage >&2; return 2; }
       upgrade_run "$command"
+      ;;
+    uninstall)
+      [[ $# -eq 1 ]] || { usage >&2; return 2; }
+      remove_uninstall
+      ;;
+    purge)
+      [[ $# -eq 1 ]] || { usage >&2; return 2; }
+      remove_purge
       ;;
     *)
       usage >&2

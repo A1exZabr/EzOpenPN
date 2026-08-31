@@ -106,7 +106,7 @@ jobs:
             tests/compose/test_certificate_rotation.py \
             tests/compose/test_runtime_security.py \
             -m integration
-          sudo bash tests/compose/scan_ports.sh 127.0.0.1
+          sudo bash tests/compose/scan_ports.sh 127.0.0.1 22
       - name: Stop the complete stack harness
         if: always()
         run: bash tests/compose/stack-down.sh

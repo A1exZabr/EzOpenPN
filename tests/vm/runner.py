@@ -7,6 +7,7 @@ import json
 import os
 import re
 import secrets
+import selectors
 import shlex
 import shutil
 import socket
@@ -147,6 +148,13 @@ def _regular_file(path: Path) -> bool:
     return stat.S_ISREG(mode) and not stat.S_ISLNK(mode)
 
 
+def _redact_output(output: str, secrets_to_redact: tuple[str, ...]) -> str:
+    for value in secrets_to_redact:
+        if value:
+            output = output.replace(value, "[redacted]")
+    return output
+
+
 def _run(
     command: list[str],
     *,
@@ -168,16 +176,103 @@ def _run(
         )
     except (OSError, subprocess.TimeoutExpired) as error:
         raise VmRunError(f"{label} could not complete") from error
-    output = completed.stdout or ""
-    for value in secrets_to_redact:
-        if value:
-            output = output.replace(value, "[redacted]")
+    output = _redact_output(completed.stdout or "", secrets_to_redact)
     if print_output and output.strip():
         print(output.rstrip())
     if completed.returncode != 0:
         tail = "\n".join(output.splitlines()[-40:])
         raise VmRunError(f"{label} failed with exit {completed.returncode}\n{tail}")
     return output.strip()
+
+
+def _run_interactive(
+    command: list[str],
+    *,
+    label: str,
+    interactions: tuple[tuple[str, str], ...],
+    timeout: int,
+    secrets_to_redact: tuple[str, ...] = (),
+    print_output: bool = True,
+) -> str:
+    try:
+        process = subprocess.Popen(
+            command,
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            bufsize=0,
+        )
+    except OSError as error:
+        raise VmRunError(f"{label} could not start") from error
+    if process.stdin is None or process.stdout is None:
+        process.kill()
+        process.wait()
+        raise VmRunError(f"{label} could not open its streams")
+
+    encoded = tuple(
+        (prompt.encode("utf-8"), f"{response}\n".encode())
+        for prompt, response in interactions
+    )
+    output = bytearray()
+    next_interaction = 0
+    search_from = 0
+    deadline = time.monotonic() + timeout
+    timed_out = False
+    selector = selectors.DefaultSelector()
+    selector.register(process.stdout, selectors.EVENT_READ)
+    try:
+        while True:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                timed_out = True
+                break
+            events = selector.select(min(0.5, remaining))
+            if not events:
+                if process.poll() is not None:
+                    break
+                continue
+            chunk = os.read(process.stdout.fileno(), 65536)
+            if not chunk:
+                break
+            output.extend(chunk)
+            while next_interaction < len(encoded):
+                prompt, response = encoded[next_interaction]
+                position = output.find(prompt, search_from)
+                if position < 0:
+                    break
+                try:
+                    process.stdin.write(response)
+                    process.stdin.flush()
+                except BrokenPipeError:
+                    break
+                search_from = position + len(prompt)
+                next_interaction += 1
+    finally:
+        selector.close()
+
+    if timed_out:
+        process.terminate()
+        try:
+            process.wait(timeout=10)
+        except subprocess.TimeoutExpired:
+            process.kill()
+            process.wait(timeout=10)
+    else:
+        process.wait(timeout=10)
+    process.stdin.close()
+    process.stdout.close()
+
+    cleaned = _redact_output(output.decode("utf-8", errors="replace"), secrets_to_redact)
+    if print_output and cleaned.strip():
+        print(cleaned.rstrip())
+    tail = "\n".join(cleaned.splitlines()[-40:])
+    if timed_out:
+        raise VmRunError(f"{label} timed out\n{tail}")
+    if next_interaction != len(encoded):
+        raise VmRunError(f"{label} ended before every prompt was answered\n{tail}")
+    if process.returncode != 0:
+        raise VmRunError(f"{label} failed with exit {process.returncode}\n{tail}")
+    return cleaned.strip()
 
 
 def _require_commands(names: tuple[str, ...]) -> None:
@@ -281,6 +376,25 @@ def _ssh(
         timeout=timeout,
         secrets_to_redact=secrets_to_redact,
         print_output=print_output,
+    )
+
+
+def _ssh_interactive(
+    key: Path,
+    port: int,
+    remote_command: str,
+    *,
+    label: str,
+    interactions: tuple[tuple[str, str], ...],
+    timeout: int,
+    secrets_to_redact: tuple[str, ...] = (),
+) -> str:
+    return _run_interactive(
+        [*_ssh_base(key, port, tty=True), remote_command],
+        label=label,
+        interactions=interactions,
+        timeout=timeout,
+        secrets_to_redact=secrets_to_redact,
     )
 
 
@@ -448,13 +562,17 @@ def _run_operations(
     _prepare_registry_auth(key, port, registry_token, registry_user)
 
     install_command = _install_command()
-    _ssh(
+    _ssh_interactive(
         key,
         port,
         install_command,
         label="install",
-        tty=True,
-        input_text=f"LAB\nowner\n{initial_password}\n{initial_password}\n",
+        interactions=(
+            ("Введите LAB: ", "LAB"),
+            ("Логин администратора: ", "owner"),
+            ("Пароль, не менее 12 символов: ", initial_password),
+            ("Повторите пароль: ", initial_password),
+        ),
         timeout=1800,
         secrets_to_redact=redactions,
     )
@@ -467,13 +585,12 @@ def _run_operations(
         label="capture identity before rerun",
         secrets_to_redact=redactions,
     )
-    _ssh(
+    _ssh_interactive(
         key,
         port,
         install_command,
         label="rerun",
-        tty=True,
-        input_text="LAB\n",
+        interactions=(("Введите LAB: ", "LAB"),),
         timeout=1800,
         secrets_to_redact=redactions,
     )
@@ -486,13 +603,15 @@ def _run_operations(
     )
     print("[vm] rerun: pass", flush=True)
 
-    _ssh(
+    _ssh_interactive(
         key,
         port,
         "sudo ezopenpn admin reset-password",
         label="reset administrator password",
-        tty=True,
-        input_text=f"{reset_password}\n{reset_password}\n",
+        interactions=(
+            ("Новый пароль, не менее 12 символов: ", reset_password),
+            ("Повторите новый пароль: ", reset_password),
+        ),
         timeout=300,
         secrets_to_redact=redactions,
     )

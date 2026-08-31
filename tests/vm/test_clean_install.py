@@ -8,6 +8,8 @@ from pathlib import Path
 from types import ModuleType
 from typing import Any
 
+import pytest
+
 ROOT = Path(__file__).resolve().parents[2]
 EXPECTED_SYSTEMS = {
     "ubuntu-22.04",
@@ -118,3 +120,49 @@ def test_vm_failure_diagnostics_capture_sanitized_service_evidence(
     assert "docker compose config" not in command
     assert kwargs["secrets_to_redact"] == ("registry-secret",)
     assert kwargs["print_output"] is True
+
+
+def test_interactive_runner_answers_only_after_each_prompt(capsys: Any) -> None:
+    runner = _runner_module()
+    script = (
+        "import sys;"
+        "sys.stdout.write('Login: ');sys.stdout.flush();"
+        "login=sys.stdin.readline().strip();"
+        "sys.stdout.write('Password: ');sys.stdout.flush();"
+        "password=sys.stdin.readline().strip();"
+        "print('accepted='+login+':'+password)"
+    )
+
+    output = runner._run_interactive(
+        [sys.executable, "-c", script],
+        label="interactive fixture",
+        interactions=(("Login: ", "owner"), ("Password: ", "secret-value")),
+        timeout=5,
+        secrets_to_redact=("secret-value",),
+    )
+
+    assert "accepted=owner:[redacted]" in output
+    assert "secret-value" not in output
+    assert "secret-value" not in capsys.readouterr().out
+
+
+def test_interactive_timeout_keeps_redacted_partial_output() -> None:
+    runner = _runner_module()
+    script = (
+        "import sys,time;"
+        "sys.stdout.write('waiting secret-value');sys.stdout.flush();"
+        "time.sleep(5)"
+    )
+
+    with pytest.raises(
+        runner.VmRunError,
+        match=r"(?s)timed out.*waiting \[redacted\]",
+    ):
+        runner._run_interactive(
+            [sys.executable, "-c", script],
+            label="stalled fixture",
+            interactions=(),
+            timeout=1,
+            secrets_to_redact=("secret-value",),
+            print_output=False,
+        )

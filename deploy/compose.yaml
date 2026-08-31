@@ -1,0 +1,250 @@
+x-service-defaults: &service-defaults
+  restart: unless-stopped
+  read_only: true
+  cap_drop: [ALL]
+  security_opt: [no-new-privileges:true]
+  pids_limit: 128
+  stop_grace_period: 10s
+  tmpfs:
+    - /tmp:rw,noexec,nosuid,nodev,size=32m,mode=1777
+  logging:
+    driver: json-file
+    options:
+      max-size: 10m
+      max-file: "3"
+
+services:
+  control:
+    <<: *service-defaults
+    image: "${CONTROL_IMAGE:?CONTROL_IMAGE is required}"
+    user: "10001:10001"
+    group_add: ["11001"]
+    init: false
+    mem_limit: 256m
+    expose: ["8000"]
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health/live', timeout=2).read()
+      interval: 15s
+      timeout: 3s
+      start_period: 20s
+      retries: 4
+    volumes:
+      - type: bind
+        source: /etc/ezopenpn/control.toml
+        target: /etc/ezopenpn/control.toml
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: /var/lib/ezopenpn/control
+        target: /var/lib/ezopenpn
+        bind:
+          create_host_path: false
+      - type: bind
+        source: /var/lib/ezopenpn/secrets/master.key
+        target: /run/secrets/ezopenpn_master_key
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: /var/lib/ezopenpn/secrets/hysteria-api.key
+        target: /run/secrets/ezopenpn_hysteria_api
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: /var/lib/ezopenpn/secrets/hysteria-obfs.key
+        target: /run/secrets/ezopenpn_hysteria_obfs
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: /var/lib/ezopenpn/runtime/xray-run
+        target: /run/ezopenpn-xray
+        read_only: true
+        bind:
+          create_host_path: false
+    depends_on:
+      xray:
+        condition: service_healthy
+    networks: [backend]
+
+  xray:
+    <<: *service-defaults
+    image: "${XRAY_IMAGE:?XRAY_IMAGE is required}"
+    user: "10002:11001"
+    init: false
+    mem_limit: 256m
+    expose: ["10085"]
+    ports:
+      - name: protected-tcp
+        target: 8443
+        published: "443"
+        host_ip: "${PUBLIC_IP:?PUBLIC_IP is required}"
+        protocol: tcp
+    healthcheck:
+      test:
+        - CMD
+        - /usr/local/bin/xray
+        - run
+        - -test
+        - -config
+        - /etc/xray/config.json
+      interval: 15s
+      timeout: 5s
+      start_period: 10s
+      retries: 4
+    volumes:
+      - type: bind
+        source: /var/lib/ezopenpn/runtime/xray/config.json
+        target: /etc/xray/config.json
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: /var/lib/ezopenpn/runtime/xray-run
+        target: /run/ezopenpn-xray
+        bind:
+          create_host_path: false
+    networks: [backend, edge]
+
+  hysteria:
+    <<: *service-defaults
+    image: "${HYSTERIA_IMAGE:?HYSTERIA_IMAGE is required}"
+    user: "10003:11003"
+    init: true
+    mem_limit: 256m
+    command:
+      - server
+      - -c
+      - /etc/hysteria/config.yaml
+      - --disable-update-check
+    expose: ["9999"]
+    ports:
+      - name: protected-udp
+        target: 8443
+        published: "443"
+        host_ip: "${PUBLIC_IP:?PUBLIC_IP is required}"
+        protocol: udp
+    healthcheck:
+      test: [CMD, hysteria, version]
+      interval: 15s
+      timeout: 3s
+      start_period: 10s
+      retries: 4
+    volumes:
+      - type: bind
+        source: /var/lib/ezopenpn/runtime/hysteria/config.yaml
+        target: /etc/hysteria/config.yaml
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: /var/lib/ezopenpn/runtime/hysteria-certs
+        target: /certs
+        read_only: true
+        bind:
+          create_host_path: false
+    depends_on:
+      control:
+        condition: service_healthy
+      cert-sync:
+        condition: service_healthy
+    networks: [backend, edge]
+
+  gateway:
+    <<: *service-defaults
+    image: "${CADDY_IMAGE:?CADDY_IMAGE is required}"
+    user: "10004:11003"
+    init: true
+    mem_limit: 128m
+    ports:
+      - name: acme-http
+        target: 8080
+        published: "80"
+        host_ip: "${PUBLIC_IP:?PUBLIC_IP is required}"
+        protocol: tcp
+      - name: panel-https
+        target: 9443
+        published: "9443"
+        host_ip: "${PUBLIC_IP:?PUBLIC_IP is required}"
+        protocol: tcp
+    healthcheck:
+      test: [CMD, caddy, version]
+      interval: 15s
+      timeout: 3s
+      start_period: 10s
+      retries: 4
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,nodev,size=32m,mode=1777
+      - /config:rw,noexec,nosuid,nodev,size=16m,mode=0700
+    volumes:
+      - type: bind
+        source: /etc/ezopenpn/Caddyfile
+        target: /etc/caddy/Caddyfile
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: /var/lib/ezopenpn/caddy
+        target: /data/caddy
+        bind:
+          create_host_path: false
+    depends_on:
+      control:
+        condition: service_healthy
+    networks: [backend, edge]
+
+  cert-sync:
+    <<: *service-defaults
+    image: "${CERT_SYNC_IMAGE:?CERT_SYNC_IMAGE is required}"
+    user: "10004:11003"
+    init: true
+    mem_limit: 64m
+    command:
+      - --source
+      - /caddy-data
+      - --output
+      - /hysteria-certs
+      - --ip
+      - "${PUBLIC_IP:?PUBLIC_IP is required}"
+      - --interval
+      - 60s
+      - --min-validity
+      - 30m
+    healthcheck:
+      test:
+        - CMD
+        - /usr/local/bin/cert-sync
+        - --healthcheck
+        - /hysteria-certs/health.json
+        - --min-validity
+        - 30m
+      interval: 15s
+      timeout: 3s
+      start_period: 10s
+      retries: 4
+    volumes:
+      - type: bind
+        source: /var/lib/ezopenpn/caddy
+        target: /caddy-data
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: /var/lib/ezopenpn/runtime/hysteria-certs
+        target: /hysteria-certs
+        bind:
+          create_host_path: false
+    network_mode: none
+
+networks:
+  edge:
+    driver: bridge
+  backend:
+    driver: bridge
+    internal: true

@@ -1,0 +1,29 @@
+[app]
+public_ip = {{ public_ip | tojson }}
+
+[database]
+path = "/var/lib/ezopenpn/ezopenpn.sqlite3"
+
+[paths]
+master_key_path = "/run/secrets/ezopenpn_master_key"
+hysteria_api_path = "/run/secrets/ezopenpn_hysteria_api"
+hysteria_obfs_path = "/run/secrets/ezopenpn_hysteria_obfs"
+supervisor_socket = "/run/ezopenpn-xray/control.sock"
+
+[proxy]
+trusted_hosts = ["gateway"]
+
+[xray]
+grpc_target = "xray:10085"
+inbound_tag = "protected-entry"
+reality_public_key = {{ xray.public_key | tojson }}
+reality_server_name = {{ xray.server_name | tojson }}
+reality_short_id = {{ xray.short_id | tojson }}
+xhttp_path = {{ xray.xhttp_path | tojson }}
+
+[hysteria]
+stats_url = "http://hysteria:9999"
+
+[session]
+idle_seconds = 43200
+absolute_seconds = 604800

@@ -53,6 +53,44 @@ jobs:
       - name: Build and inspect the control image
         run: bash tests/compose/control-smoke.sh
 
+  compose-build:
+    needs: content
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        with:
+          python-version: "3.12.11"
+      - name: Install locked environment
+        run: |
+          python -m pip install --disable-pip-version-check uv==0.12.7
+          uv sync --all-groups --frozen
+      - name: Verify upstream image locks
+        run: bash tools/lock_images.sh --check
+      - name: Validate gateway and Compose configuration
+        run: |
+          PUBLIC_IP=203.0.113.10 bash tests/compose/caddy-adapt.sh >/dev/null
+          uv run pytest -q \
+            tests/compose/test_image_lock.py \
+            tests/compose/test_caddy_config.py \
+            tests/compose/test_compose_policy.py \
+            tests/compose/test_compose_render.py
+      - name: Build and inspect runtime images
+        run: |
+          docker build -f runtime/Dockerfile.xray -t ezopenpn-xray:ci .
+          docker build -f runtime/Dockerfile.cert-sync -t ezopenpn-cert-sync:ci .
+          test "$(docker image inspect ezopenpn-xray:ci --format '{{.Config.User}}')" = "10002:11001"
+          test "$(docker image inspect ezopenpn-cert-sync:ci --format '{{.Config.User}}')" = "10004:11003"
+          if docker run --rm --entrypoint /bin/sh ezopenpn-xray:ci -c true 2>/dev/null; then
+            echo "xray image unexpectedly contains a shell" >&2
+            exit 1
+          fi
+          if docker run --rm --entrypoint /bin/sh ezopenpn-cert-sync:ci -c true 2>/dev/null; then
+            echo "cert-sync image unexpectedly contains a shell" >&2
+            exit 1
+          fi
+
   runtime-integration:
     needs: content
     runs-on: ubuntu-24.04

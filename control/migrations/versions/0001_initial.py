@@ -34,6 +34,7 @@ def upgrade() -> None:
         sa.Column("id", sa.String(length=36), nullable=False),
         sa.Column("login", sa.String(length=128), nullable=False),
         sa.Column("password_hash", sa.String(length=512), nullable=False),
+        sa.Column("singleton_key", sa.Integer(), nullable=False, server_default="1"),
         sa.Column("session_version", sa.Integer(), nullable=False, server_default="1"),
         *_timestamps(),
         sa.Column("last_login_at", sa.DateTime(timezone=True), nullable=True),
@@ -41,8 +42,10 @@ def upgrade() -> None:
             "length(login) BETWEEN 1 AND 128", name="ck_admins_login_length"
         ),
         sa.CheckConstraint("session_version >= 1", name="ck_admins_session_version"),
+        sa.CheckConstraint("singleton_key = 1", name="ck_admins_singleton_key"),
         sa.PrimaryKeyConstraint("id"),
         sa.UniqueConstraint("login", name="uq_admins_login"),
+        sa.UniqueConstraint("singleton_key", name="uq_admins_singleton_key"),
     )
     op.create_table(
         "login_throttles",

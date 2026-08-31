@@ -74,13 +74,16 @@ class Admin(Base):
     __tablename__ = "admins"
     __table_args__ = (
         UniqueConstraint("login", name="uq_admins_login"),
+        UniqueConstraint("singleton_key", name="uq_admins_singleton_key"),
         CheckConstraint("length(login) BETWEEN 1 AND 128", name="ck_admins_login_length"),
         CheckConstraint("session_version >= 1", name="ck_admins_session_version"),
+        CheckConstraint("singleton_key = 1", name="ck_admins_singleton_key"),
     )
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True)
     login: Mapped[str] = mapped_column(String(128), nullable=False)
     password_hash: Mapped[str] = mapped_column(String(512), nullable=False)
+    singleton_key: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     session_version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     created_at: Mapped[datetime] = mapped_column(
         UTCDateTime(), nullable=False, server_default=func.current_timestamp()

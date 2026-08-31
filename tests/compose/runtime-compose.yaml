@@ -54,7 +54,7 @@ services:
     volumes:
       - ${RUNTIME_CONFIG_ROOT}/client.yaml:/test/client.yaml:ro
     ports:
-      - "127.0.0.1::1080"
+      - "127.0.0.1:11080:1080"
     networks: [runtime-test]
 
 networks:

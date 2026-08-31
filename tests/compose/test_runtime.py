@@ -189,11 +189,16 @@ def _run(command: list[str], *, environment: dict[str, str]) -> str:
         timeout=180,
     )
     if result.returncode != 0:
-        diagnostic = "\n".join((result.stdout, result.stderr)).strip()[-2000:]
-        for value in _TEST_VALUES_TO_REDACT:
-            diagnostic = diagnostic.replace(value, "<redacted>")
+        diagnostic = _redact("\n".join((result.stdout, result.stderr)))
         raise RuntimeError(f"runtime integration command failed: {diagnostic}")
     return result.stdout.strip()
+
+
+def _redact(value: str) -> str:
+    sanitized = value.strip()[-2000:]
+    for test_value in _TEST_VALUES_TO_REDACT:
+        sanitized = sanitized.replace(test_value, "<redacted>")
+    return sanitized
 
 
 def _wait_for(callback, *, timeout: float = 45.0) -> object:
@@ -320,9 +325,7 @@ def test_real_runtimes_accept_management_and_revocation(
         stats_port = _published_port(
             "hysteria", 9999, project=project, environment=environment
         )
-        socks_port = _published_port(
-            "client", 1080, project=project, environment=environment
-        )
+        socks_port = 11080
         control_port = _published_port(
             "control", 8000, project=project, environment=environment
         )
@@ -342,7 +345,22 @@ def test_real_runtimes_accept_management_and_revocation(
         assert xray.list_users() == set()
         xray.close()
 
-        _wait_for(lambda: _socket_ready(socks_port))
+        try:
+            _wait_for(lambda: _socket_ready(socks_port))
+        except RuntimeError:
+            logs = subprocess.run(
+                [*compose, "logs", "--no-color", "--tail", "80", "client", "hysteria"],
+                cwd=_ROOT,
+                env=environment,
+                stdin=subprocess.DEVNULL,
+                capture_output=True,
+                text=True,
+                check=False,
+                timeout=20,
+            )
+            raise RuntimeError(
+                f"runtime client did not become ready: {_redact(logs.stdout + logs.stderr)}"
+            ) from None
         _run(
             [
                 "curl",

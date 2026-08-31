@@ -4,6 +4,7 @@
 	http_port 8080
 	https_port 9443
 	storage file_system /data/caddy
+	default_sni {$PUBLIC_IP}
 }
 
 https://{$PUBLIC_IP}:9443 {

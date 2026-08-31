@@ -32,6 +32,7 @@ def test_caddy_has_no_admin_api_and_uses_unprivileged_ports(
     assert "http_port 8080" in caddyfile
     assert "https_port 9443" in caddyfile
     assert "storage file_system /data/caddy" in caddyfile
+    assert "default_sni {$PUBLIC_IP}" in caddyfile
 
 
 def test_internal_routes_are_not_proxied(caddyfile: str) -> None:

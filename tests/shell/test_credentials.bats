@@ -25,6 +25,7 @@ SH
   chmod 0700 "$TEST_CONTROL_BIN"
   source "${REPOSITORY_ROOT}/installer/lib/common.sh"
   source "${REPOSITORY_ROOT}/installer/lib/credentials.sh"
+  source "${REPOSITORY_ROOT}/installer/lib/lock.sh"
 }
 
 @test "initial administrator secret reaches the child only on stdin" {
@@ -72,4 +73,20 @@ SH
   [ "$status" -eq 64 ]
   [[ "$output" == *"E_CREDENTIAL_REUSE"* ]]
   [ ! -e "$TEST_CAPTURE_ROOT/stdin" ]
+}
+
+@test "credential input does not release the active operation lock" {
+  local phrase='strong console phrase'
+  printf '%s\n' owner "$phrase" "$phrase" >"$EZOPENPN_TTY_INPUT_PATH"
+  acquire_operation_lock install
+
+  initialize_admin_from_tty "$TEST_CONTROL_BIN"
+  run env EZOPENPN_RUN_ROOT="$EZOPENPN_RUN_ROOT" bash -c \
+    'source "$1"; source "$2"; acquire_operation_lock update' _ \
+    "$REPOSITORY_ROOT/installer/lib/common.sh" \
+    "$REPOSITORY_ROOT/installer/lib/lock.sh"
+
+  [ "$status" -eq 73 ]
+  [[ "$output" == *"E_OPERATION_LOCKED"* ]]
+  release_operation_lock
 }

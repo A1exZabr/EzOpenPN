@@ -17,27 +17,27 @@ collect_admin_credentials() {
     return
   fi
 
-  exec 9<"$input_path"
+  exec 8<"$input_path"
   printf '%s' 'Логин администратора: ' >>"$output_path"
-  if ! IFS= read -r -u 9 ADMIN_LOGIN; then
-    exec 9<&-
+  if ! IFS= read -r -u 8 ADMIN_LOGIN; then
+    exec 8<&-
     _credential_error "E_CREDENTIAL_INPUT: логин не прочитан"
     return
   fi
   printf '%s' 'Пароль, не менее 12 символов: ' >>"$output_path"
-  if ! IFS= read -r -s -u 9 ADMIN_PASSWORD; then
-    exec 9<&-
+  if ! IFS= read -r -s -u 8 ADMIN_PASSWORD; then
+    exec 8<&-
     _credential_error "E_CREDENTIAL_INPUT: пароль не прочитан"
     return
   fi
   printf '\n%s' 'Повторите пароль: ' >>"$output_path"
-  if ! IFS= read -r -s -u 9 ADMIN_PASSWORD_CONFIRM; then
-    exec 9<&-
+  if ! IFS= read -r -s -u 8 ADMIN_PASSWORD_CONFIRM; then
+    exec 8<&-
     _credential_error "E_CREDENTIAL_INPUT: подтверждение не прочитано"
     return
   fi
   printf '\n' >>"$output_path"
-  exec 9<&-
+  exec 8<&-
 
   if (( ${#ADMIN_LOGIN} < 1 || ${#ADMIN_LOGIN} > 64 )); then
     _credential_error "E_CREDENTIAL_LOGIN: логин должен содержать от 1 до 64 символов"

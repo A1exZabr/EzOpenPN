@@ -629,6 +629,22 @@ code {
   background: var(--white);
 }
 
+.recovery-reminder {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 16px;
+  align-items: center;
+  margin-top: 18px;
+  padding: 18px 22px;
+  border: 1px solid #b8c6e8;
+  border-radius: 16px;
+  background: #eef3ff;
+}
+
+.recovery-reminder span {
+  color: var(--muted);
+}
+
 .guide ol {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -724,7 +740,8 @@ button.danger {
   .profile-grid,
   .transport-grid,
   .guide ol,
-  .link-content {
+  .link-content,
+  .recovery-reminder {
     grid-template-columns: 1fr;
   }
 

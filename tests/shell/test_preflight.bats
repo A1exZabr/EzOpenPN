@@ -37,6 +37,25 @@ assert_preflight_ok() {
   done
 }
 
+@test "accurate HTTPS clock is accepted before the sync service reports ready" {
+  export TEST_TIME_SYNC=no
+  export TEST_HTTPS_DATE='Mon, 31 Aug 2026 16:18:00 GMT'
+  export TEST_NOW_EPOCH=1788193380
+
+  assert_preflight_ok
+}
+
+@test "clock skew over five minutes is rejected" {
+  export TEST_TIME_SYNC=no
+  export TEST_HTTPS_DATE='Mon, 31 Aug 2026 16:18:00 GMT'
+  export TEST_NOW_EPOCH=1788193381
+
+  run run_preflight
+
+  [ "$status" -eq 23 ]
+  [[ "$output" == *"E_PREFLIGHT_TIME"* ]]
+}
+
 @test "unsupported architecture fails before mutation" {
   export TEST_UNAME_M=aarch64
 

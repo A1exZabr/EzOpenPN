@@ -124,7 +124,7 @@ Expected: FAIL on missing `run_preflight`.
 
 - [ ] **Step 3: Implement every spec precondition without mutation**
 
-Parse `/etc/os-release`, require `x86_64`, systemd, root or sudo, 1 GiB MemTotal, 4 GiB free on `/var`, synchronized time from `timedatectl`, working DNS and HTTPS, and direct public IPv4 assignment. Resolve public IP through `https://checkip.amazonaws.com` and `https://api.ipify.org`; require equal valid results and require the address in `ip -4 addr`. Check TCP and UDP listeners for 80, 443 and 9443, list foreign Docker containers, inspect active UFW or firewalld, and reject unsupported raw firewall policy. Check access to GitHub, Docker registry, Let’s Encrypt directory and every configured Reality target candidate.
+Parse `/etc/os-release`, require `x86_64`, systemd, root or sudo, 1 GiB MemTotal, 4 GiB free on `/var`, synchronized time from `timedatectl` or clock agreement within five minutes of an authenticated HTTPS response, working DNS and HTTPS, and direct public IPv4 assignment. Resolve public IP through `https://checkip.amazonaws.com` and `https://api.ipify.org`; require equal valid results and require the address in `ip -4 addr`. Check TCP and UDP listeners for 80, 443 and 9443, list foreign Docker containers, inspect active UFW or firewalld, and reject unsupported raw firewall policy. Check access to GitHub, Docker registry, Let’s Encrypt directory and every configured Reality target candidate.
 
 When EzOpenPN checkpoints already exist, return maintenance mode rather than treating its own listeners and containers as conflicts.
 

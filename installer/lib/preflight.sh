@@ -195,6 +195,49 @@ _network_is_reachable() {
   done
 }
 
+_https_clock_date() {
+  if [[ -n "${TEST_HTTPS_DATE+x}" ]]; then
+    printf '%s\n' "$TEST_HTTPS_DATE"
+    return
+  fi
+  curl --proto '=https' --tlsv1.2 -fsSL \
+    --connect-timeout 5 --max-time 15 \
+    -D - -o /dev/null https://github.com/ |
+    awk '
+      tolower($1) == "date:" {
+        sub(/^[^:]*:[[:space:]]*/, "")
+        gsub(/\r/, "")
+        value = $0
+      }
+      END {
+        if (value != "") print value
+      }
+    '
+}
+
+_clock_matches_https() {
+  local remote_date now_epoch="${TEST_NOW_EPOCH:-}"
+  remote_date="$(_https_clock_date)" || return 1
+  [[ -n "$remote_date" ]] || return 1
+  python3 - "$remote_date" "$now_epoch" <<'PY'
+from __future__ import annotations
+
+import math
+import sys
+import time
+from email.utils import parsedate_to_datetime
+
+try:
+    remote = parsedate_to_datetime(sys.argv[1]).timestamp()
+    current = float(sys.argv[2]) if sys.argv[2] else time.time()
+except (OverflowError, TypeError, ValueError):
+    raise SystemExit(1)
+if not math.isfinite(remote) or not math.isfinite(current):
+    raise SystemExit(1)
+raise SystemExit(0 if abs(current - remote) <= 300 else 1)
+PY
+}
+
 run_preflight() {
   local mode="install"
   local state_root="${EZOPENPN_STATE_ROOT:-/var/lib/ezopenpn}"
@@ -263,9 +306,11 @@ run_preflight() {
   case "$synchronized" in
     yes | Yes | YES | true | True | TRUE | 1) ;;
     *)
-      _preflight_fail 23 "$mode" "$public_ip" "E_PREFLIGHT_TIME" \
-        "системное время не синхронизировано"
-      return
+      if ! _clock_matches_https; then
+        _preflight_fail 23 "$mode" "$public_ip" "E_PREFLIGHT_TIME" \
+          "не удалось подтвердить правильность системного времени"
+        return
+      fi
       ;;
   esac
 

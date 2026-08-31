@@ -430,6 +430,10 @@ def test_real_runtimes_accept_management_and_revocation(
         hysteria = HttpHysteriaClient(stats_url, "test-stats-value-5678")
         hysteria.kick(_RUNTIME_ID)
         hysteria.close()
+        # The pinned runtime consumes a kick marker on the next traffic event.
+        _wait_for(
+            lambda: not _socks_request_ready(socks_port, environment=environment)
+        )
         _wait_for(lambda: not online())
     finally:
         subprocess.run(

@@ -272,6 +272,20 @@ class StackHarness:
         raise RuntimeError(f"{name} is missing from the stack environment")
 
     @staticmethod
+    def _read_protected_bytes(path: Path) -> bytes:
+        privilege_prefix = [] if os.geteuid() == 0 else ["sudo", "-n"]
+        result = subprocess.run(
+            [*privilege_prefix, "cat", str(path)],
+            stdin=subprocess.DEVNULL,
+            capture_output=True,
+            check=False,
+            timeout=10,
+        )
+        if result.returncode != 0:
+            raise RuntimeError("protected test material cannot be read")
+        return result.stdout
+
+    @staticmethod
     def _read_exact(stream: socket.socket, size: int) -> bytes:
         result = bytearray()
         while len(result) < size:
@@ -317,7 +331,9 @@ class StackHarness:
     def verify_hysteria_handshake(self, ca_path: Path) -> None:
         auth = (self.root / "test-client-auth").read_text(encoding="ascii")
         obfs = urlsafe_b64encode(
-            (self.root / "secrets" / "hysteria-obfs.key").read_bytes()
+            self._read_protected_bytes(
+                self.root / "secrets" / "hysteria-obfs.key"
+            )
         ).rstrip(b"=").decode("ascii")
         config_path = self.root / "rotation-client.yaml"
         config_path.write_text(

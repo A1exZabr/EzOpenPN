@@ -20,6 +20,7 @@ _REQUIRED_ASSETS = (
     _ROOT / "tests" / "compose" / "fixtures" / "test-ip-cert.sh",
     _ROOT / "tests" / "compose" / "fixtures" / "Caddyfile.test",
     _ROOT / "tests" / "compose" / "stack-override.yaml",
+    _ROOT / "tests" / "compose" / "project-name.sh",
     _ROOT / "tests" / "compose" / "stack-up.sh",
     _ROOT / "tests" / "compose" / "stack-down.sh",
 )
@@ -27,6 +28,22 @@ _REQUIRED_ASSETS = (
 
 def test_stack_harness_assets_are_present() -> None:
     assert all(path.is_file() for path in _REQUIRED_ASSETS)
+
+
+def test_stack_project_name_normalizes_mixed_case_suffix() -> None:
+    result = subprocess.run(
+        [
+            "bash",
+            str(_ROOT / "tests" / "compose" / "project-name.sh"),
+            "/tmp/ezopenpn-stack.aB9xYz",
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=10,
+    )
+    assert result.returncode == 0
+    assert result.stdout.strip() == "ezop-stack-ab9xyz"
 
 
 @dataclass(frozen=True)

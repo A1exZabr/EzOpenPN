@@ -9,7 +9,7 @@ if [[ -e "$state_path" ]]; then
 fi
 
 test_root="$(mktemp -d "${TMPDIR:-/tmp}/ezopenpn-stack.XXXXXX")"
-project="ezop-stack-$(basename "$test_root" | tr -cd 'a-zA-Z0-9' | tail -c 12)"
+project="$(bash "${repository_root}/tests/compose/project-name.sh" "$test_root")"
 environment_path="${test_root}/stack.env"
 compose=(
   docker compose

@@ -65,11 +65,21 @@ src = ["control/src", "control/tests", "tools"]
 [tool.ruff.lint]
 select = ["E", "F", "I", "B", "SIM", "UP"]
 
+[tool.ruff.lint.per-file-ignores]
+"control/src/ezopenpn/integrations/xray_proto/**/*_pb2.py" = ["ALL"]
+"control/src/ezopenpn/integrations/xray_proto/**/*_pb2_grpc.py" = ["ALL"]
+
 [tool.mypy]
 python_version = "3.12"
 strict = true
 mypy_path = "control/src"
 files = ["control/src/ezopenpn"]
+exclude = ["control/src/ezopenpn/integrations/xray_proto/"]
+
+[[tool.mypy.overrides]]
+module = ["ezopenpn.integrations.xray_proto.*"]
+follow_imports = "skip"
+ignore_errors = true
 
 [tool.bandit]
 exclude_dirs = ["control/tests"]

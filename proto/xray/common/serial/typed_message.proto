@@ -1,0 +1,15 @@
+// SPDX-License-Identifier: MPL-2.0
+// Reduced from XTLS/Xray-core v26.3.27.
+
+syntax = "proto3";
+
+package xray.common.serial;
+option csharp_namespace = "Xray.Common.Serial";
+option go_package = "github.com/xtls/xray-core/common/serial";
+option java_package = "com.xray.common.serial";
+option java_multiple_files = true;
+
+message TypedMessage {
+  string type = 1;
+  bytes value = 2;
+}

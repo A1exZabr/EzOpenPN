@@ -40,6 +40,8 @@ sudo chmod 0640 "${test_root}/control.toml"
 sudo chown -R 10002:11001 "${test_root}/runtime/xray" "${test_root}/xray-run"
 sudo chown -R 10003:11003 "${test_root}/runtime/hysteria"
 sudo chown -R 10004:11003 "${test_root}/caddy-data" "${test_root}/hysteria-certs"
+sudo chown 10004:11003 "${test_root}/gateway-certs"
+sudo chmod 0750 "${test_root}/gateway-certs"
 sudo chown 10004:11003 \
   "${test_root}/gateway-certs/server.crt" \
   "${test_root}/gateway-certs/server.key"

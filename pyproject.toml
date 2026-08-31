@@ -31,6 +31,7 @@ dev = [
   "pytest-cov==7.1.0",
   "respx==0.23.1",
   "ruff==0.16.5",
+  "types-grpcio==1.83.0.20260730",
 ]
 
 [build-system]

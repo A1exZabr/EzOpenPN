@@ -1,0 +1,139 @@
+{
+  "$defs": {
+    "client": {
+      "additionalProperties": false,
+      "properties": {
+        "application": {
+          "enum": [
+            "Hiddify Next",
+            "Happ",
+            "v2rayN"
+          ]
+        },
+        "combined_link_imported": {
+          "const": true
+        },
+        "passed": {
+          "const": true
+        },
+        "platform": {
+          "enum": [
+            "Android",
+            "iOS",
+            "Windows"
+          ]
+        },
+        "release_channel": {
+          "const": "stable"
+        },
+        "revocation_observed": {
+          "const": true
+        },
+        "stable_release_verified_at": {
+          "format": "date-time",
+          "pattern": "Z$",
+          "type": "string"
+        },
+        "transports": {
+          "additionalProperties": false,
+          "properties": {
+            "hysteria2-salamander": {
+              "$ref": "#/$defs/transport"
+            },
+            "vless-reality-xhttp": {
+              "$ref": "#/$defs/transport"
+            }
+          },
+          "required": [
+            "vless-reality-xhttp",
+            "hysteria2-salamander"
+          ],
+          "type": "object"
+        },
+        "version": {
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "application",
+        "platform",
+        "version",
+        "release_channel",
+        "stable_release_verified_at",
+        "combined_link_imported",
+        "transports",
+        "revocation_observed",
+        "passed"
+      ],
+      "type": "object"
+    },
+    "transport": {
+      "additionalProperties": false,
+      "properties": {
+        "connected": {
+          "const": true
+        },
+        "data_transferred": {
+          "const": true
+        },
+        "external_server_verified": {
+          "const": true
+        }
+      },
+      "required": [
+        "connected",
+        "external_server_verified",
+        "data_transferred"
+      ],
+      "type": "object"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "application_version": {
+      "pattern": "^v[0-9]+\\.[0-9]+\\.[0-9]+$",
+      "type": "string"
+    },
+    "clients": {
+      "items": {
+        "$ref": "#/$defs/client"
+      },
+      "maxItems": 3,
+      "minItems": 3,
+      "type": "array",
+      "uniqueItems": true
+    },
+    "evidence_kind": {
+      "const": "clients"
+    },
+    "passed": {
+      "const": true
+    },
+    "recorded_at": {
+      "format": "date-time",
+      "pattern": "Z$",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": 1
+    },
+    "usage_region": {
+      "pattern": "^[A-Z]{2}$",
+      "type": "string"
+    }
+  },
+  "required": [
+    "evidence_kind",
+    "schema_version",
+    "recorded_at",
+    "application_version",
+    "usage_region",
+    "clients",
+    "passed"
+  ],
+  "title": "EzOpenPN client matrix result",
+  "type": "object"
+}

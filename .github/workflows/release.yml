@@ -100,7 +100,13 @@ jobs:
           bash tools/verify_image_attestations.sh \
             --manifest image-evidence/images.release.json \
             --sbom-dir "$GITHUB_WORKSPACE/image-evidence/artifacts/sbom"
+          python tests/release/validate_evidence.py docs/releases/evidence
           python tests/release/validate_evidence.py release-evidence
+          for evidence in fixed.json mobile.json clients.json; do
+            cmp --silent \
+              "docs/releases/evidence/$evidence" \
+              "release-evidence/$evidence"
+          done
       - name: Build deterministic bundle and SPDX SBOM
         env:
           RELEASE_TAG: ${{ inputs.tag }}

@@ -13,6 +13,7 @@ PUBLIC_DOCUMENTS = (
     ROOT / "docs/security.md",
     ROOT / "docs/compatibility.md",
     ROOT / "docs/architecture.md",
+    ROOT / "docs/releases/release-checklist.md",
 )
 INSTALL_COMMAND = (
     "curl -fsSL https://github.com/A1exZabr/EzOpenPN/releases/latest/download/"

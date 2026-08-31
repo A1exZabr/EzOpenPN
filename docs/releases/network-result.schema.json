@@ -1,0 +1,239 @@
+{
+  "$defs": {
+    "continuity": {
+      "additionalProperties": false,
+      "properties": {
+        "passed": {
+          "const": true
+        },
+        "reconnect_seconds": {
+          "exclusiveMinimum": 0,
+          "maximum": 10,
+          "type": "number"
+        },
+        "reconnected": {
+          "const": true
+        }
+      },
+      "required": [
+        "reconnected",
+        "reconnect_seconds",
+        "passed"
+      ],
+      "type": "object"
+    },
+    "revocation": {
+      "additionalProperties": false,
+      "properties": {
+        "other_active_vless_profile": {
+          "$ref": "#/$defs/continuity"
+        },
+        "transports": {
+          "additionalProperties": false,
+          "properties": {
+            "hysteria2-salamander": {
+              "$ref": "#/$defs/transportRevocation"
+            },
+            "vless-reality-xhttp": {
+              "$ref": "#/$defs/transportRevocation"
+            }
+          },
+          "required": [
+            "vless-reality-xhttp",
+            "hysteria2-salamander"
+          ],
+          "type": "object"
+        }
+      },
+      "required": [
+        "transports",
+        "other_active_vless_profile"
+      ],
+      "type": "object"
+    },
+    "transportRevocation": {
+      "additionalProperties": false,
+      "properties": {
+        "fourth_transfer_started": {
+          "const": true
+        },
+        "passed": {
+          "const": true
+        },
+        "reconnect_attempted": {
+          "const": true
+        },
+        "reconnect_observation_seconds": {
+          "maximum": 60,
+          "minimum": 10,
+          "type": "number"
+        },
+        "reconnect_succeeded": {
+          "const": false
+        },
+        "termination_seconds": {
+          "exclusiveMinimum": 0,
+          "maximum": 10,
+          "type": "number"
+        },
+        "transfer_terminated": {
+          "const": true
+        }
+      },
+      "required": [
+        "fourth_transfer_started",
+        "transfer_terminated",
+        "termination_seconds",
+        "reconnect_attempted",
+        "reconnect_succeeded",
+        "reconnect_observation_seconds",
+        "passed"
+      ],
+      "type": "object"
+    },
+    "trial": {
+      "additionalProperties": false,
+      "properties": {
+        "bytes_transferred": {
+          "minimum": 104857600,
+          "type": "integer"
+        },
+        "duration_seconds": {
+          "exclusiveMinimum": 0,
+          "type": "number"
+        },
+        "external_server_verified": {
+          "const": true
+        },
+        "handshake": {
+          "const": true
+        },
+        "max_stall_seconds": {
+          "maximum": 10,
+          "minimum": 0,
+          "type": "number"
+        },
+        "median_mbps": {
+          "minimum": 2,
+          "type": "number"
+        },
+        "passed": {
+          "const": true
+        },
+        "trial": {
+          "maximum": 3,
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "trial",
+        "handshake",
+        "external_server_verified",
+        "bytes_transferred",
+        "duration_seconds",
+        "median_mbps",
+        "max_stall_seconds",
+        "passed"
+      ],
+      "type": "object"
+    },
+    "trialSet": {
+      "items": {
+        "$ref": "#/$defs/trial"
+      },
+      "maxItems": 3,
+      "minItems": 3,
+      "type": "array"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "application_version": {
+      "pattern": "^v[0-9]+\\.[0-9]+\\.[0-9]+$",
+      "type": "string"
+    },
+    "client": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "version": {
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "version"
+      ],
+      "type": "object"
+    },
+    "evidence_kind": {
+      "const": "network"
+    },
+    "external_server_verified": {
+      "const": true
+    },
+    "network_type": {
+      "enum": [
+        "fixed",
+        "mobile"
+      ]
+    },
+    "passed": {
+      "const": true
+    },
+    "recorded_at": {
+      "format": "date-time",
+      "pattern": "Z$",
+      "type": "string"
+    },
+    "revocation": {
+      "$ref": "#/$defs/revocation"
+    },
+    "schema_version": {
+      "const": 1
+    },
+    "trials": {
+      "additionalProperties": false,
+      "properties": {
+        "hysteria2-salamander": {
+          "$ref": "#/$defs/trialSet"
+        },
+        "vless-reality-xhttp": {
+          "$ref": "#/$defs/trialSet"
+        }
+      },
+      "required": [
+        "vless-reality-xhttp",
+        "hysteria2-salamander"
+      ],
+      "type": "object"
+    },
+    "usage_region": {
+      "pattern": "^[A-Z]{2}$",
+      "type": "string"
+    }
+  },
+  "required": [
+    "evidence_kind",
+    "schema_version",
+    "recorded_at",
+    "application_version",
+    "usage_region",
+    "network_type",
+    "client",
+    "external_server_verified",
+    "trials",
+    "revocation",
+    "passed"
+  ],
+  "title": "EzOpenPN external network result",
+  "type": "object"
+}

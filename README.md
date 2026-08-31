@@ -75,6 +75,7 @@ sudo ezopenpn backup
 - [Совместимость](docs/compatibility.md)
 - [Безопасность](docs/security.md)
 - [Архитектура](docs/architecture.md)
+- [Проверка выпуска во внешних сетях](docs/releases/release-checklist.md)
 
 ## Обновления и обратная связь
 

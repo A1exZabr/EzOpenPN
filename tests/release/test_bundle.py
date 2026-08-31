@@ -107,6 +107,9 @@ def test_release_workflow_is_manual_and_evidence_gated() -> None:
     assert "images_run_id:" in workflow
     assert "git verify-tag" in workflow
     assert "validate_evidence.py" in workflow
+    assert "validate_evidence.py docs/releases/evidence" in workflow
+    assert '"docs/releases/evidence/$evidence"' in workflow
+    assert '"release-evidence/$evidence"' in workflow
     assert "--draft" in workflow
     assert "--draft=false" in workflow
     assert workflow.index("verify_release.sh --signed") < workflow.index("--draft=false")

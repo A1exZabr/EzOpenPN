@@ -1,0 +1,53 @@
+name: Evidence
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_commit:
+        description: Exact tested source commit containing sanitized evidence
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: evidence-${{ inputs.source_commit }}
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    name: Validate external evidence
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+          ref: ${{ inputs.source_commit }}
+      - name: Bind evidence to the requested commit
+        id: source
+        env:
+          SOURCE_COMMIT: ${{ inputs.source_commit }}
+        run: |
+          [[ "$SOURCE_COMMIT" =~ ^[0-9a-f]{40}$ ]]
+          actual="$(git rev-parse HEAD)"
+          test "$actual" = "$SOURCE_COMMIT"
+          echo "commit=$actual" >> "$GITHUB_OUTPUT"
+      - name: Validate committed network and client results
+        run: |
+          python3 tests/release/validate_evidence.py docs/releases/evidence
+          python3 tools/content_guard.py docs/releases/evidence
+      - name: Stage only the canonical evidence set
+        run: |
+          install -d -m 0755 release-evidence
+          install -m 0644 docs/releases/evidence/fixed.json release-evidence/fixed.json
+          install -m 0644 docs/releases/evidence/mobile.json release-evidence/mobile.json
+          install -m 0644 docs/releases/evidence/clients.json release-evidence/clients.json
+          python3 tests/release/validate_evidence.py release-evidence
+      - name: Upload release-bound evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: release-evidence-${{ steps.source.outputs.commit }}
+          path: release-evidence
+          if-no-files-found: error
+          retention-days: 30

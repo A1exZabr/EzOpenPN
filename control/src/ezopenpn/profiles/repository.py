@@ -10,7 +10,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import aliased
 
 from ezopenpn.db import session_scope
-from ezopenpn.models import Profile, ProfileLookup, ProfileState
+from ezopenpn.models import AuditEvent, Profile, ProfileLookup, ProfileState
 from ezopenpn.profiles.types import (
     NewProfileMaterial,
     ProfileRecord,
@@ -206,6 +206,28 @@ class ProfileRepository:
             session.flush()
             return _record(profile, digest)
 
+    def set_runtime_error(self, profile_id: UUID, error_code: str) -> ProfileRecord:
+        if not 1 <= len(error_code) <= 64 or not error_code.replace("_", "").isalnum():
+            raise ValueError("runtime error code is invalid")
+        timestamp = _utc(self._clock())
+        with session_scope(self._engine) as session:
+            session.execute(text("BEGIN IMMEDIATE"))
+            row = session.execute(
+                select(Profile, ProfileLookup.lookup_digest)
+                .join(ProfileLookup, ProfileLookup.profile_id == Profile.id)
+                .where(
+                    Profile.id == str(profile_id),
+                    ProfileLookup.kind == _SUBSCRIPTION_LOOKUP_KIND,
+                )
+            ).one_or_none()
+            if row is None:
+                raise ProfileNotFound("profile is unavailable")
+            profile, digest = row
+            profile.last_error_code = error_code
+            profile.updated_at = timestamp
+            session.flush()
+            return _record(profile, digest)
+
     def delete_local(self, profile_id: UUID) -> None:
         with session_scope(self._engine) as session:
             session.execute(text("BEGIN IMMEDIATE"))
@@ -218,3 +240,16 @@ class ProfileRepository:
                 delete(ProfileLookup).where(ProfileLookup.profile_id == profile.id)
             )
             session.delete(profile)
+            session.add(
+                AuditEvent(
+                    id=str(uuid4()),
+                    event_type="profile_deleted",
+                    actor_admin_id=None,
+                    subject_id=None,
+                    details_json="{}",
+                )
+            )
+
+    def checkpoint_wal(self) -> None:
+        with self._engine.connect() as connection:
+            connection.exec_driver_sql("PRAGMA wal_checkpoint(TRUNCATE)").all()

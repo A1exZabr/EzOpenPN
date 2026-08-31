@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hmac
+from dataclasses import dataclass
 from typing import cast
 from uuid import UUID
 
@@ -8,6 +9,13 @@ from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from starlette.responses import Response
 
+from ezopenpn.profiles.coordinator import (
+    ProfileDeleteFailed,
+    ProfileEnableFailed,
+    ProfileProvisioningFailed,
+    ProfileRevocationFailed,
+)
+from ezopenpn.profiles.links import ProfileLinksUnavailable, build_qr_svg
 from ezopenpn.profiles.repository import (
     InvalidProfileTransition,
     ProfileConflict,
@@ -18,6 +26,16 @@ from ezopenpn.web.dependencies import authenticated_browser
 
 router = APIRouter()
 _MAX_FORM_BYTES = 16 * 1024
+
+
+@dataclass(frozen=True, slots=True)
+class ProfilePageLinks:
+    combined_url: str
+    vless_link: str
+    hysteria_link: str
+    combined_qr_svg: str
+    vless_qr_svg: str
+    hysteria_qr_svg: str
 
 
 async def _form(request: Request) -> dict[str, str]:
@@ -82,6 +100,8 @@ async def create_profile(request: Request) -> Response:
         return HTMLResponse("Проверьте имя устройства.", status_code=400)
     except ProfileConflict:
         return HTMLResponse("Не удалось создать профиль. Повторите попытку.", status_code=409)
+    except ProfileProvisioningFailed:
+        return HTMLResponse("Подготовка не завершена. Повторите попытку.", status_code=503)
     return RedirectResponse(f"/profiles/{result.profile_id}", status_code=303)
 
 
@@ -97,6 +117,20 @@ def profile_page(request: Request, profile_id: str) -> Response:
         record = request.app.state.services.profiles.get(parsed_id)
     except ProfileNotFound:
         return HTMLResponse("Профиль не найден.", status_code=404)
+    page_links = None
+    if record.state.value == "active":
+        try:
+            bundle = request.app.state.services.links.bundle_for_record(record)
+            page_links = ProfilePageLinks(
+                combined_url=bundle.combined_url,
+                vless_link=bundle.vless_link,
+                hysteria_link=bundle.hysteria_link,
+                combined_qr_svg=build_qr_svg(bundle.combined_url),
+                vless_qr_svg=build_qr_svg(bundle.vless_link),
+                hysteria_qr_svg=build_qr_svg(bundle.hysteria_link),
+            )
+        except ProfileLinksUnavailable:
+            page_links = None
     return cast(
         HTMLResponse,
         request.app.state.templates.TemplateResponse(
@@ -106,7 +140,7 @@ def profile_page(request: Request, profile_id: str) -> Response:
                 "browser": browser,
                 "csrf": browser.csrf_token,
                 "profile": record,
-                "links": None,
+                "links": page_links,
             },
         ),
     )
@@ -128,6 +162,8 @@ async def _change_state(request: Request, profile_id: str, operation: str) -> Re
         return HTMLResponse("Профиль не найден.", status_code=404)
     except InvalidProfileTransition:
         return HTMLResponse("Состояние профиля уже изменилось.", status_code=409)
+    except (ProfileRevocationFailed, ProfileEnableFailed):
+        return HTMLResponse("Операция не завершена. Запустите диагностику.", status_code=503)
     return RedirectResponse(f"/profiles/{parsed_id}", status_code=303)
 
 
@@ -155,4 +191,6 @@ async def delete_profile(request: Request, profile_id: str) -> Response:
         request.app.state.services.runtime.delete(parsed_id)
     except ProfileNotFound:
         return HTMLResponse("Профиль не найден.", status_code=404)
+    except (ProfileRevocationFailed, ProfileDeleteFailed):
+        return HTMLResponse("Удаление не завершено. Запустите диагностику.", status_code=503)
     return RedirectResponse("/", status_code=303)

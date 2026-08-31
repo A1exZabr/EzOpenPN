@@ -13,14 +13,17 @@ from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from ezopenpn.config import SecretFiles, Settings
 from ezopenpn.db import create_engine_for
+from ezopenpn.integrations.hysteria import HttpHysteriaClient
+from ezopenpn.integrations.supervisor import UnixXraySupervisorClient
+from ezopenpn.integrations.xray import GrpcXrayClient
+from ezopenpn.profiles.coordinator import ProfileCoordinator
 from ezopenpn.profiles.links import (
     ProfileLinkService,
     TransportLinkConfig,
     encode_url_secret,
 )
 from ezopenpn.profiles.repository import ProfileRepository
-from ezopenpn.profiles.runtime import FakeRuntimeCoordinator, RuntimeCoordinator
-from ezopenpn.profiles.service import ProfileService
+from ezopenpn.profiles.runtime import RuntimeCoordinator
 from ezopenpn.security.admin import AdminService
 from ezopenpn.security.secrets import SecretCipher
 from ezopenpn.security.sessions import SessionService
@@ -92,7 +95,6 @@ def create_runtime_app() -> FastAPI:
     engine = create_engine_for(settings.database_path)
     cipher = SecretCipher(secrets.master_key)
     profile_repository = ProfileRepository(engine, cipher)
-    profile_service = ProfileService(profile_repository, cipher)
     link_service = ProfileLinkService(
         profile_repository,
         cipher,
@@ -116,7 +118,17 @@ def create_runtime_app() -> FastAPI:
         throttle=LoginThrottleService(engine, secrets.master_key),
         preauth=PreAuthService(engine, secrets.master_key),
         profiles=profile_repository,
-        runtime=FakeRuntimeCoordinator(profile_service),
+        runtime=ProfileCoordinator(
+            profile_repository,
+            cipher,
+            link_service,
+            GrpcXrayClient(settings.xray_grpc_target, settings.xray_inbound_tag),
+            HttpHysteriaClient(
+                str(settings.hysteria_stats_url),
+                encode_url_secret(secrets.hysteria_api_secret),
+            ),
+            UnixXraySupervisorClient(settings.supervisor_socket),
+        ),
         links=link_service,
     )
     return create_app(settings, services)

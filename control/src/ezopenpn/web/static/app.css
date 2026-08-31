@@ -516,6 +516,53 @@ code {
   gap: 18px;
 }
 
+.link-card {
+  padding: clamp(24px, 5vw, 42px);
+  border-radius: 22px;
+  color: var(--white);
+  background: var(--ink);
+}
+
+.link-card h2 {
+  margin-top: 0;
+}
+
+.link-card code {
+  display: block;
+  margin-bottom: 18px;
+  color: #dce6ff;
+}
+
+.link-content {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 28px;
+  align-items: center;
+}
+
+.qr-code {
+  width: max-content;
+  padding: 10px;
+  border-radius: 12px;
+  color: var(--ink);
+  background: var(--white);
+}
+
+.qr-code svg {
+  width: 156px;
+  height: 156px;
+  display: block;
+}
+
+.compact-qr {
+  margin-top: 18px;
+}
+
+.compact-qr svg {
+  width: 124px;
+  height: 124px;
+}
+
 .preparing-card {
   min-height: 190px;
   border-style: solid;
@@ -542,6 +589,16 @@ code {
 .transport-card h3 {
   margin: 0;
   font-size: 1.35rem;
+}
+
+.transport-card > div:not(.qr-code) {
+  min-width: 0;
+  flex: 1;
+}
+
+.transport-card code {
+  display: block;
+  margin: 14px 0;
 }
 
 .transport-card p:last-child {
@@ -666,7 +723,8 @@ button.danger {
   .create-panel,
   .profile-grid,
   .transport-grid,
-  .guide ol {
+  .guide ol,
+  .link-content {
     grid-template-columns: 1fr;
   }
 

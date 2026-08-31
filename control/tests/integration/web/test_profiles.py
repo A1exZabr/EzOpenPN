@@ -32,7 +32,10 @@ def test_create_profile_redirects_to_card(authenticated_client: TestClient) -> N
 
     assert response.status_code == 200
     assert "Телефон" in response.text
-    assert "Подключение готовится" in response.text
+    assert "Активен" in response.text
+    assert "vless://" in response.text
+    assert "hysteria2://" in response.text
+    assert response.text.count("<svg") == 3
     assert "sudo ezopenpn admin reset-password" in response.text
 
 
@@ -73,7 +76,7 @@ def test_active_profile_can_be_disabled_and_enabled(
     assert web_app.state.services.profiles.get(profile_id).state is ProfileState.ACTIVE
 
 
-def test_delete_requires_confirmation_and_removes_pending_profile(
+def test_delete_requires_confirmation_and_removes_profile(
     authenticated_client: TestClient, web_app
 ) -> None:
     profile_id = _create(authenticated_client)
@@ -117,11 +120,12 @@ def test_profile_page_explains_four_import_steps(authenticated_client: TestClien
         assert f'data-step="{step}"' in response.text
 
 
-def test_pending_token_is_not_rendered_in_panel(
+def test_non_active_token_is_not_rendered_in_panel(
     authenticated_client: TestClient, web_app
 ) -> None:
     created = web_app.state.services.runtime.create("Рабочий телефон")
     assert created.subscription_token is not None
+    web_app.state.services.profiles.set_state(created.profile_id, ProfileState.ERROR)
 
     dashboard = authenticated_client.get("/")
     profile = authenticated_client.get(f"/profiles/{created.profile_id}")

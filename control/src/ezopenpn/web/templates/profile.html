@@ -23,8 +23,13 @@
       <article class="link-card primary-link">
         <p class="eyebrow">Рекомендуется</p>
         <h2>Общая ссылка</h2>
-        <code id="combined-link">{{ links.combined_url }}</code>
-        <button type="button" data-copy-target="combined-link">Скопировать</button>
+        <div class="link-content">
+          <div>
+            <code id="combined-link">{{ links.combined_url }}</code>
+            <button type="button" data-copy-target="combined-link">Скопировать</button>
+          </div>
+          <div class="qr-code" aria-label="QR-код общей ссылки">{{ links.combined_qr_svg | safe }}</div>
+        </div>
       </article>
     {% else %}
       <article class="preparing-card">
@@ -42,7 +47,11 @@
         <div>
           <p class="eyebrow">Канал A</p>
           <h3>VLESS + Reality</h3>
-          {% if links %}<code id="channel-a">{{ links.vless_link }}</code>{% else %}<p>Будет доступен после подготовки.</p>{% endif %}
+          {% if links %}
+            <code id="channel-a">{{ links.vless_link }}</code>
+            <button type="button" data-copy-target="channel-a">Скопировать</button>
+            <div class="qr-code compact-qr" aria-label="QR-код канала A">{{ links.vless_qr_svg | safe }}</div>
+          {% else %}<p>Будет доступен после подготовки.</p>{% endif %}
         </div>
       </article>
       <article class="transport-card">
@@ -50,7 +59,11 @@
         <div>
           <p class="eyebrow">Канал B</p>
           <h3>Hysteria2</h3>
-          {% if links %}<code id="channel-b">{{ links.hysteria_link }}</code>{% else %}<p>Будет доступен после подготовки.</p>{% endif %}
+          {% if links %}
+            <code id="channel-b">{{ links.hysteria_link }}</code>
+            <button type="button" data-copy-target="channel-b">Скопировать</button>
+            <div class="qr-code compact-qr" aria-label="QR-код канала B">{{ links.hysteria_qr_svg | safe }}</div>
+          {% else %}<p>Будет доступен после подготовки.</p>{% endif %}
         </div>
       </article>
     </div>

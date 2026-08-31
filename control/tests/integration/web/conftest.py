@@ -8,9 +8,9 @@ from starlette.testclient import TestClient
 
 from ezopenpn.config import AppSettings, DatabaseSettings, Settings, XraySettings
 from ezopenpn.db import create_engine_for, upgrade_database
+from ezopenpn.profiles.coordinator import ProfileCoordinator
 from ezopenpn.profiles.links import ProfileLinkService, TransportLinkConfig
 from ezopenpn.profiles.repository import ProfileRepository
-from ezopenpn.profiles.runtime import FakeRuntimeCoordinator
 from ezopenpn.profiles.service import ProfileService
 from ezopenpn.security.admin import AdminService
 from ezopenpn.security.secrets import SecretCipher
@@ -20,6 +20,36 @@ from ezopenpn.web.app import WebServices, create_app
 from ezopenpn.web.preauth import PreAuthService
 
 MASTER_KEY = bytes(range(32))
+
+
+class FakeXray:
+    def __init__(self) -> None:
+        self.users: dict[str, object] = {}
+
+    def add_user(self, runtime_id, user_id) -> None:
+        self.users[runtime_id] = user_id
+
+    def remove_user(self, runtime_id) -> None:
+        self.users.pop(runtime_id, None)
+
+    def list_users(self) -> set[str]:
+        return set(self.users)
+
+    def wait_ready(self, timeout_seconds: float) -> None:
+        assert timeout_seconds == 6.0
+
+
+class FakeHysteria:
+    def kick(self, runtime_id) -> None:
+        del runtime_id
+
+
+class FakeSupervisor:
+    def __init__(self, xray: FakeXray) -> None:
+        self._xray = xray
+
+    def restart(self) -> None:
+        self._xray.users.clear()
 
 
 @pytest.fixture
@@ -41,25 +71,36 @@ def web_app(tmp_path: Path):
             xhttp_path="/panel-test",
         ),
     )
+    profile_service = ProfileService(profiles, cipher)
+    links = ProfileLinkService(
+        profiles,
+        cipher,
+        TransportLinkConfig(
+            host=settings.public_ip,
+            reality_public_key=settings.xray.reality_public_key,
+            reality_server_name=settings.xray.reality_server_name,
+            reality_short_id=settings.xray.reality_short_id,
+            xhttp_path=settings.xray.xhttp_path,
+            hysteria_obfs_password="obfs-secret",
+        ),
+    )
+    xray = FakeXray()
     services = WebServices(
         admins=admins,
         sessions=SessionService(engine, MASTER_KEY),
         throttle=LoginThrottleService(engine, MASTER_KEY),
         preauth=PreAuthService(engine, MASTER_KEY),
         profiles=profiles,
-        runtime=FakeRuntimeCoordinator(ProfileService(profiles, cipher)),
-        links=ProfileLinkService(
+        runtime=ProfileCoordinator(
             profiles,
             cipher,
-            TransportLinkConfig(
-                host=settings.public_ip,
-                reality_public_key=settings.xray.reality_public_key,
-                reality_server_name=settings.xray.reality_server_name,
-                reality_short_id=settings.xray.reality_short_id,
-                xhttp_path=settings.xray.xhttp_path,
-                hysteria_obfs_password="obfs-secret",
-            ),
+            links,
+            xray,
+            FakeHysteria(),
+            FakeSupervisor(xray),
+            profile_service=profile_service,
         ),
+        links=links,
         expose_observed_client=True,
     )
     return create_app(settings, services)

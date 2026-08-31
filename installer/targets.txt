@@ -1,0 +1,5 @@
+# Candidates are checked from the server before one is selected.
+www.apple.com
+www.mozilla.org
+www.fastly.com
+www.samsung.com

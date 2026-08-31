@@ -1,0 +1,58 @@
+services:
+  control:
+    image: python:3.12.11-slim-bookworm
+    command: ["python", "/test/runtime_auth_stub.py"]
+    environment:
+      TEST_AUTH_VALUE: profile-auth-value-1234
+    volumes:
+      - ./runtime_auth_stub.py:/test/runtime_auth_stub.py:ro
+    ports:
+      - "127.0.0.1::8000"
+    networks: [runtime-test]
+
+  target:
+    image: python:3.12.11-slim-bookworm
+    command: ["python", "-m", "http.server", "8080", "--bind", "0.0.0.0"]
+    networks: [runtime-test]
+
+  xray:
+    image: ghcr.io/xtls/xray-core:26.3.27
+    command: ["run", "-config", "/etc/xray/config.json"]
+    volumes:
+      - ${RUNTIME_CONFIG_ROOT}/xray/config.json:/etc/xray/config.json:ro
+    ports:
+      - "127.0.0.1::10085"
+    networks: [runtime-test]
+
+  hysteria:
+    image: tobyxdd/hysteria:v2.12.2
+    command:
+      - server
+      - -c
+      - /etc/hysteria/config.yaml
+      - --disable-update-check
+    depends_on: [control]
+    volumes:
+      - ${RUNTIME_CONFIG_ROOT}/hysteria/config.yaml:/etc/hysteria/config.yaml:ro
+      - ${RUNTIME_CERT_ROOT}:/certs:ro
+    ports:
+      - "127.0.0.1::9999"
+    networks: [runtime-test]
+
+  client:
+    image: tobyxdd/hysteria:v2.12.2
+    restart: on-failure
+    command:
+      - client
+      - -c
+      - /test/client.yaml
+      - --disable-update-check
+    depends_on: [hysteria]
+    volumes:
+      - ${RUNTIME_CONFIG_ROOT}/client.yaml:/test/client.yaml:ro
+    ports:
+      - "127.0.0.1::1080"
+    networks: [runtime-test]
+
+networks:
+  runtime-test: {}

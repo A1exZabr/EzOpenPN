@@ -1,0 +1,83 @@
+{
+  "log": {
+    "access": "none",
+    "dnsLog": false,
+    "loglevel": "warning"
+  },
+  "api": {
+    "tag": "api",
+    "services": ["HandlerService"]
+  },
+  "inbounds": [
+    {
+      "listen": {{ xray.listen | tojson }},
+      "port": {{ xray.port }},
+      "protocol": "vless",
+      "tag": {{ xray.inbound_tag | tojson }},
+      "settings": {
+        "clients": [],
+        "decryption": "none"
+      },
+      "streamSettings": {
+        "network": "xhttp",
+        "security": "reality",
+        "xhttpSettings": {
+          "mode": "auto",
+          "path": {{ xray.xhttp_path | tojson }}
+        },
+        "realitySettings": {
+          "show": false,
+          "target": {{ xray.target | tojson }},
+          "xver": 0,
+          "serverNames": [{{ xray.server_name | tojson }}],
+          "privateKey": {{ xray.private_key | tojson }},
+          "shortIds": [{{ xray.short_id | tojson }}],
+          "limitFallbackUpload": {
+            "afterBytes": {{ xray.fallback_upload.after_bytes }},
+            "bytesPerSec": {{ xray.fallback_upload.bytes_per_second }},
+            "burstBytesPerSec": {{ xray.fallback_upload.burst_bytes_per_second }}
+          },
+          "limitFallbackDownload": {
+            "afterBytes": {{ xray.fallback_download.after_bytes }},
+            "bytesPerSec": {{ xray.fallback_download.bytes_per_second }},
+            "burstBytesPerSec": {{ xray.fallback_download.burst_bytes_per_second }}
+          }
+        }
+      },
+      "sniffing": {
+        "enabled": true,
+        "destOverride": ["http", "tls", "quic"],
+        "routeOnly": true
+      }
+    },
+    {
+      "listen": {{ xray.api_listen | tojson }},
+      "port": {{ xray.api_port }},
+      "protocol": "dokodemo-door",
+      "tag": "api-in",
+      "settings": {
+        "address": "127.0.0.1"
+      }
+    }
+  ],
+  "outbounds": [
+    {
+      "protocol": "freedom",
+      "tag": "direct"
+    },
+    {
+      "protocol": "blackhole",
+      "tag": "block"
+    }
+  ],
+  "routing": {
+    "domainStrategy": "AsIs",
+    "rules": [
+      {
+        "type": "field",
+        "inboundTag": ["api-in"],
+        "outboundTag": "api"
+      }
+    ]
+  }
+}

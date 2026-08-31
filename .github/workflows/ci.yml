@@ -52,3 +52,19 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       - name: Build and inspect the control image
         run: bash tests/compose/control-smoke.sh
+
+  runtime-integration:
+    needs: content
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        with:
+          python-version: "3.12.11"
+      - name: Install locked environment
+        run: |
+          python -m pip install --disable-pip-version-check uv==0.12.7
+          uv sync --all-groups --frozen
+      - name: Verify pinned transport runtimes
+        run: uv run pytest -q tests/compose/test_runtime.py -m integration

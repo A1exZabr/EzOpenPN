@@ -98,7 +98,11 @@ jobs:
       - name: Prepare the complete stack harness
         run: bash tests/compose/stack-up.sh
       - name: Verify the complete stack
-        run: uv run pytest -q tests/compose/test_stack_health.py -m integration
+        run: |
+          uv run pytest -q \
+            tests/compose/test_stack_health.py \
+            tests/compose/test_certificate_rotation.py \
+            -m integration
       - name: Stop the complete stack harness
         if: always()
         run: bash tests/compose/stack-down.sh

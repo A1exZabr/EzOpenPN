@@ -1,0 +1,89 @@
+from __future__ import annotations
+
+import importlib.util
+import re
+import sys
+import tomllib
+from pathlib import Path
+from types import ModuleType
+
+ROOT = Path(__file__).resolve().parents[2]
+EXPECTED_SYSTEMS = {
+    "ubuntu-22.04",
+    "ubuntu-24.04",
+    "debian-12",
+    "debian-13",
+}
+EXPECTED_STEPS = {
+    "install": "pass",
+    "rerun": "pass",
+    "reset": "pass",
+    "backup_restore": "pass",
+    "reinstall": "pass",
+    "uninstall": "pass",
+}
+
+
+def _runner_module() -> ModuleType:
+    path = ROOT / "tests/vm/runner.py"
+    specification = importlib.util.spec_from_file_location("ezopenpn_vm_runner", path)
+    assert specification is not None and specification.loader is not None
+    module = importlib.util.module_from_spec(specification)
+    sys.modules[specification.name] = module
+    specification.loader.exec_module(module)
+    return module
+
+
+def test_vm_matrix_is_complete_and_locked() -> None:
+    matrix = tomllib.loads(
+        (ROOT / "tests/vm/matrix.toml").read_text(encoding="utf-8")
+    )
+    assert matrix["schema"] == 1
+    assert set(matrix["images"]) == EXPECTED_SYSTEMS
+    for image in matrix["images"].values():
+        assert image["url"].startswith("https://")
+        assert image["manifest_url"].startswith("https://")
+        assert re.fullmatch(r"[0-9a-f]{64}", image["sha256"])
+        assert image["manifest_algorithm"] in {"sha256", "sha512"}
+        expected_length = 64 if image["manifest_algorithm"] == "sha256" else 128
+        assert re.fullmatch(
+            rf"[0-9a-f]{{{expected_length}}}", image["manifest_checksum"]
+        )
+        assert image["url"].endswith(image["filename"])
+
+
+def test_vm_result_requires_every_recovery_operation() -> None:
+    runner = _runner_module()
+    result = {
+        "schema": 1,
+        "system": "ubuntu-24.04",
+        "image_sha256": "a" * 64,
+        "started_at": "2026-08-31T10:00:00Z",
+        "finished_at": "2026-08-31T10:20:00Z",
+        "steps": EXPECTED_STEPS,
+        "limitations": [
+            "public_certificate_not_tested",
+            "external_transport_performance_not_tested",
+        ],
+    }
+
+    assert runner.validate_result(result) == result
+
+
+def test_cloud_init_uses_keys_only_and_disables_root_login() -> None:
+    cloud_init = (ROOT / "tests/vm/cloud-init.yaml").read_text(encoding="utf-8")
+    assert "@@SSH_PUBLIC_KEY@@" in cloud_init
+    assert "ssh_pwauth: false" in cloud_init
+    assert "disable_root: true" in cloud_init
+    assert "plain_text_passwd" not in cloud_init
+    assert "lock_passwd: true" in cloud_init
+
+
+def test_vm_workflow_is_manual_and_runs_every_system() -> None:
+    workflow = (ROOT / ".github/workflows/vm-matrix.yml").read_text(encoding="utf-8")
+    assert "workflow_dispatch:" in workflow
+    assert "images_run_id:" in workflow
+    assert "/dev/kvm" in workflow
+    assert "tests/vm/runner.py" in workflow
+    for system in EXPECTED_SYSTEMS:
+        assert system in workflow

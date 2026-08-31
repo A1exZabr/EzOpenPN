@@ -1,0 +1,14 @@
+#cloud-config
+users:
+  - name: eztest
+    gecos: Disposable system check
+    shell: /bin/bash
+    lock_passwd: true
+    sudo: ALL=(ALL) NOPASSWD:ALL
+    ssh_authorized_keys:
+      - @@SSH_PUBLIC_KEY@@
+ssh_pwauth: false
+disable_root: true
+package_update: false
+package_upgrade: false
+final_message: "Disposable system is ready"

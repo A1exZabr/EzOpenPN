@@ -1,0 +1,33 @@
+schema = 1
+
+[images."ubuntu-22.04"]
+url = "https://cloud-images.ubuntu.com/jammy/current/jammy-server-cloudimg-amd64.img"
+filename = "jammy-server-cloudimg-amd64.img"
+sha256 = "46c966c646ab2e73af6ce8a2bdd20fefbc20f851794bbd46de31d2d1103b72c0"
+manifest_url = "https://cloud-images.ubuntu.com/jammy/current/SHA256SUMS"
+manifest_algorithm = "sha256"
+manifest_checksum = "46c966c646ab2e73af6ce8a2bdd20fefbc20f851794bbd46de31d2d1103b72c0"
+
+[images."ubuntu-24.04"]
+url = "https://cloud-images.ubuntu.com/noble/current/noble-server-cloudimg-amd64.img"
+filename = "noble-server-cloudimg-amd64.img"
+sha256 = "d0fe84bb5f80853425fa6be28e2c106f30104c3cfe8611933f2e65c9b63f0e30"
+manifest_url = "https://cloud-images.ubuntu.com/noble/current/SHA256SUMS"
+manifest_algorithm = "sha256"
+manifest_checksum = "d0fe84bb5f80853425fa6be28e2c106f30104c3cfe8611933f2e65c9b63f0e30"
+
+[images."debian-12"]
+url = "https://cloud.debian.org/images/cloud/bookworm/latest/debian-12-genericcloud-amd64.qcow2"
+filename = "debian-12-genericcloud-amd64.qcow2"
+sha256 = "3ac58d009df21d570bb10811ae1e07afd1125e9669c87897bfb58e52b8f5c937"
+manifest_url = "https://cloud.debian.org/images/cloud/bookworm/latest/SHA512SUMS"
+manifest_algorithm = "sha512"
+manifest_checksum = "c602f42a374c097bafcbc77c2d034fb06cb8a831d791bcbaa5d043f029874b0c32d41cb72ba8b6d50ccfd64c9b4b0dc9ade5b6e4065712f3eb152338e532721f"
+
+[images."debian-13"]
+url = "https://cloud.debian.org/images/cloud/trixie/latest/debian-13-genericcloud-amd64.qcow2"
+filename = "debian-13-genericcloud-amd64.qcow2"
+sha256 = "85a969b7e99d7c817414136033df18c58d5c45ac8d27bb36e8ccb67173d2d4e3"
+manifest_url = "https://cloud.debian.org/images/cloud/trixie/latest/SHA512SUMS"
+manifest_algorithm = "sha512"
+manifest_checksum = "8ea9faae810043a0b35b0149f05014f26705c2339ffb11ead308f33e844a87cc3ef46ec81d5262b38817b6a88af404874d48a5857ebe072ef6a31dfb6e371f50"

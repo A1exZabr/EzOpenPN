@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import base64
 import json
+import os
 import secrets
 import sys
 from pathlib import Path
@@ -25,11 +26,24 @@ def _encoded(value: bytes) -> str:
 
 
 def _write(path: Path, content: str | bytes, mode: int) -> None:
-    if isinstance(content, str):
-        path.write_text(content, encoding="utf-8")
-    else:
-        path.write_bytes(content)
-    path.chmod(mode)
+    payload = content.encode("utf-8") if isinstance(content, str) else content
+    descriptor = os.open(
+        path,
+        os.O_WRONLY
+        | os.O_CREAT
+        | os.O_EXCL
+        | getattr(os, "O_CLOEXEC", 0)
+        | getattr(os, "O_NOFOLLOW", 0),
+        mode,
+    )
+    try:
+        os.fchmod(descriptor, mode)
+        with os.fdopen(descriptor, "wb", closefd=False) as stream:
+            stream.write(payload)
+            stream.flush()
+            os.fsync(stream.fileno())
+    finally:
+        os.close(descriptor)
 
 
 def _prepare_test_profile(root: Path, master_key: bytes) -> None:

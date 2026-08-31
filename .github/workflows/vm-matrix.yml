@@ -1,0 +1,141 @@
+name: VM Matrix
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_commit:
+        description: Exact commit used by the verified Images run
+        required: true
+        type: string
+      images_run_id:
+        description: Successful Images workflow run ID for the same commit
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: vm-matrix-${{ inputs.source_commit }}
+  cancel-in-progress: false
+
+jobs:
+  bundle:
+    name: Prepare verified bundle
+    runs-on: ubuntu-24.04
+    permissions:
+      actions: read
+      attestations: read
+      contents: read
+      packages: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ inputs.source_commit }}
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        with:
+          python-version: "3.12.11"
+      - name: Confirm the successful Images run
+        env:
+          GH_TOKEN: ${{ github.token }}
+          IMAGES_RUN_ID: ${{ inputs.images_run_id }}
+          SOURCE_COMMIT: ${{ inputs.source_commit }}
+        run: |
+          [[ "$SOURCE_COMMIT" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$IMAGES_RUN_ID" =~ ^[0-9]+$ ]]
+          test "$(git rev-parse HEAD)" = "$SOURCE_COMMIT"
+          readarray -t run < <(gh api \
+            "repos/${GITHUB_REPOSITORY}/actions/runs/${IMAGES_RUN_ID}" \
+            --jq '.name,.head_sha,.status,.conclusion')
+          test "${run[0]}" = Images
+          test "${run[1]}" = "$SOURCE_COMMIT"
+          test "${run[2]}" = completed
+          test "${run[3]}" = success
+          gh run download "$IMAGES_RUN_ID" \
+            --name "images-release-${SOURCE_COMMIT}" \
+            --dir image-evidence
+      - name: Verify images and build the bundle
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REGISTRY_TOKEN: ${{ github.token }}
+          SOURCE_COMMIT: ${{ inputs.source_commit }}
+        run: |
+          python -m pip install --disable-pip-version-check uv==0.12.7
+          bash tools/lock_toolchain.sh --install "$RUNNER_TEMP/ezopenpn-tools" cosign
+          export PATH="$RUNNER_TEMP/ezopenpn-tools/bin:$PATH"
+          echo "$REGISTRY_TOKEN" | docker login ghcr.io \
+            --username "$GITHUB_ACTOR" --password-stdin
+          bash tools/verify_image_attestations.sh \
+            --manifest image-evidence/images.release.json \
+            --sbom-dir "$GITHUB_WORKSPACE/image-evidence/sbom"
+          source_epoch="$(git show -s --format=%ct "$SOURCE_COMMIT")"
+          SOURCE_DATE_EPOCH="$source_epoch" bash tools/build_release.sh \
+            --version v0.1.0 \
+            --source-commit "$SOURCE_COMMIT" \
+            --images-manifest image-evidence/images.release.json \
+            --output dist/vm
+          bash tools/verify_release.sh dist/vm
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: vm-release-${{ inputs.source_commit }}
+          path: dist/vm
+          if-no-files-found: error
+          retention-days: 7
+
+  system:
+    name: ${{ matrix.system }}
+    needs: bundle
+    runs-on: ubuntu-24.04
+    timeout-minutes: 50
+    permissions:
+      actions: read
+      contents: read
+      packages: read
+    strategy:
+      fail-fast: false
+      matrix:
+        system:
+          - ubuntu-22.04
+          - ubuntu-24.04
+          - debian-12
+          - debian-13
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ inputs.source_commit }}
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        with:
+          python-version: "3.12.11"
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: vm-release-${{ inputs.source_commit }}
+          path: dist/vm
+      - name: Install virtual machine tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends \
+            cloud-image-utils openssh-client qemu-system-x86 qemu-utils
+          test -c /dev/kvm
+          sudo chown "$USER" /dev/kvm
+          sudo chmod 0600 /dev/kvm
+      - name: Check the locked system image
+        run: bash tools/lock_vm_images.sh --check
+      - name: Exercise clean installation and recovery
+        env:
+          EZOPENPN_VM_REGISTRY_TOKEN: ${{ github.token }}
+          EZOPENPN_VM_REGISTRY_USER: ${{ github.actor }}
+          SYSTEM: ${{ matrix.system }}
+        run: |
+          python tests/vm/runner.py \
+            --system "$SYSTEM" \
+            --bundle dist/vm/ezopenpn-bundle.tar.gz \
+            --output "artifacts/vm/${SYSTEM}.json" \
+            --cache "$RUNNER_TEMP/ezopenpn-vm-cache"
+          python tests/vm/runner.py \
+            --validate-result "artifacts/vm/${SYSTEM}.json"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: vm-result-${{ matrix.system }}-${{ inputs.source_commit }}
+          path: artifacts/vm/${{ matrix.system }}.json
+          if-no-files-found: error
+          retention-days: 30

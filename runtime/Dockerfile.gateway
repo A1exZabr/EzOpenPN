@@ -30,7 +30,7 @@ FROM ${CADDY_BASE_REPOSITORY}@${CADDY_BASE_DIGEST}
 COPY --from=builder /out/caddy /usr/bin/caddy
 COPY --from=builder /src/caddy/LICENSE /licenses/Caddy-Apache-2.0.txt
 RUN apk upgrade --no-cache \
-    && setcap -r /usr/bin/caddy \
+    && { setcap -r /usr/bin/caddy 2>/dev/null || true; } \
     && test -z "$(getcap /usr/bin/caddy)" \
     && apk del libcap
 USER 10004:11003

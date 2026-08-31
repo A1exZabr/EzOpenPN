@@ -8,6 +8,7 @@ from nacl.exceptions import CryptoError
 
 from ezopenpn.models import ProfileState
 from ezopenpn.profiles.links import ProfileLinkService
+from ezopenpn.profiles.reconcile import RuntimeHealth
 from ezopenpn.profiles.repository import (
     InvalidProfileTransition,
     ProfileNotFound,
@@ -44,6 +45,10 @@ class HysteriaClient(Protocol):
 
 class XraySupervisorClient(Protocol):
     def restart(self) -> None: ...
+
+
+class Reconciler(Protocol):
+    def run(self) -> ReconcileResult: ...
 
 
 class ProfileProvisioningFailed(RuntimeError):
@@ -93,6 +98,8 @@ class ProfileCoordinator:
         supervisor: XraySupervisorClient,
         *,
         profile_service: ProfileService | None = None,
+        reconciler: Reconciler | None = None,
+        runtime_health: RuntimeHealth | None = None,
     ) -> None:
         self._repository = repository
         self._cipher = cipher
@@ -101,6 +108,8 @@ class ProfileCoordinator:
         self._hysteria = hysteria
         self._supervisor = supervisor
         self._profiles = profile_service or ProfileService(repository, cipher)
+        self._reconciler = reconciler
+        self._runtime_health = runtime_health
 
     def _user_id(self, record: ProfileRecord) -> UUID:
         if record.wrapped_profile_key is None:
@@ -132,6 +141,12 @@ class ProfileCoordinator:
         except Exception:
             return
 
+    def _reconcile_after_error(self) -> None:
+        try:
+            self.reconcile()
+        except Exception:
+            return
+
     def create(self, name: str) -> ProfileResult:
         pending = self._profiles.create(name)
         record = self._repository.get(pending.profile_id)
@@ -143,6 +158,7 @@ class ProfileCoordinator:
             with suppress(Exception):
                 self._xray.remove_user(record.runtime_id)
             self._mark_error(record.profile_id, _XRAY_ADD_FAILED)
+            self._reconcile_after_error()
             raise ProfileProvisioningFailed("profile provisioning failed") from None
         return _result(
             active,
@@ -186,6 +202,7 @@ class ProfileCoordinator:
             self._repository.set_runtime_error(
                 disabled.profile_id, _RUNTIME_REVOKE_INCOMPLETE
             )
+            self._reconcile_after_error()
             raise ProfileRevocationFailed("profile revocation incomplete")
         return _result(self._repository.get(disabled.profile_id))
 
@@ -203,6 +220,7 @@ class ProfileCoordinator:
             with suppress(Exception):
                 self._xray.remove_user(current.runtime_id)
             self._mark_error(profile_id, _XRAY_ADD_FAILED)
+            self._reconcile_after_error()
             raise ProfileEnableFailed("profile enable failed") from None
         return _result(active, links=links)
 
@@ -215,7 +233,15 @@ class ProfileCoordinator:
             raise
         except Exception:
             self._mark_error(profile_id, _PROFILE_MATERIAL_INVALID)
+            self._reconcile_after_error()
             raise ProfileDeleteFailed("profile deletion failed") from None
 
     def reconcile(self) -> ReconcileResult:
-        return ReconcileResult()
+        result = (
+            self._reconciler.run()
+            if self._reconciler is not None
+            else ReconcileResult()
+        )
+        if self._runtime_health is not None:
+            self._runtime_health.update(result)
+        return result

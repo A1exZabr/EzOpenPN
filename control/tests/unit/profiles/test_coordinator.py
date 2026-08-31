@@ -17,7 +17,9 @@ from ezopenpn.profiles.coordinator import (
     ProfileRevocationFailed,
 )
 from ezopenpn.profiles.links import ProfileLinkService, TransportLinkConfig
+from ezopenpn.profiles.reconcile import RuntimeHealth
 from ezopenpn.profiles.repository import ProfileNotFound, ProfileRepository
+from ezopenpn.profiles.runtime import ReconcileResult
 from ezopenpn.profiles.service import ProfileService
 from ezopenpn.security.secrets import SecretCipher
 
@@ -81,6 +83,16 @@ class FakeSupervisor:
         self.events.append("xray:restart")
 
 
+class FakeReconciler:
+    def __init__(self) -> None:
+        self.runs = 0
+        self.result = ReconcileResult()
+
+    def run(self) -> ReconcileResult:
+        self.runs += 1
+        return self.result
+
+
 class CoordinatorFixture:
     def __init__(self, tmp_path: Path) -> None:
         self.events: list[str] = []
@@ -135,6 +147,8 @@ class CoordinatorFixture:
         self.xray = FakeXray(self.events)
         self.hysteria = FakeHysteria(self.events)
         self.supervisor = FakeSupervisor(self.events)
+        self.reconciler = FakeReconciler()
+        self.health = RuntimeHealth()
         self.coordinator = ProfileCoordinator(
             self.repository,
             self.cipher,
@@ -143,6 +157,8 @@ class CoordinatorFixture:
             self.hysteria,
             self.supervisor,
             profile_service=profile_service,
+            reconciler=self.reconciler,
+            runtime_health=self.health,
         )
 
 
@@ -174,6 +190,22 @@ def test_failed_create_never_returns_links(fixture: CoordinatorFixture) -> None:
     assert stored[0].state is ProfileState.ERROR
     assert stored[0].last_error_code == "xray_add_failed"
     assert "private" not in str(captured.value)
+    assert fixture.reconciler.runs == 1
+
+
+def test_failed_mutation_propagates_reconcile_health(
+    fixture: CoordinatorFixture,
+) -> None:
+    fixture.xray.reject_add = True
+    fixture.reconciler.result = ReconcileResult(
+        error_code="runtime_reconcile_failed"
+    )
+
+    with pytest.raises(ProfileProvisioningFailed):
+        fixture.coordinator.create("Телефон")
+
+    assert fixture.health.snapshot().ready is False
+    assert fixture.health.snapshot().error_code == "runtime_reconcile_failed"
 
 
 def test_disable_blocks_auth_before_every_revocation_phase(

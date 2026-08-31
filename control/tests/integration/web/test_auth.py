@@ -2,6 +2,8 @@ import re
 
 from starlette.testclient import TestClient
 
+from ezopenpn.profiles.runtime import ReconcileResult
+
 
 def extract_csrf(page: str) -> str:
     match = re.search(r'name="csrf" value="([^"\s]+)"', page)
@@ -134,3 +136,20 @@ def test_unhandled_errors_are_redacted_and_keep_security_headers(web_app) -> Non
     assert "fixture-sensitive-detail" not in response.text
     assert "frame-ancestors 'none'" in response.headers["content-security-policy"]
     assert response.headers["x-request-id"]
+
+
+def test_runtime_degradation_keeps_live_and_login_available(
+    web_app, web_client: TestClient
+) -> None:
+    web_app.state.services.runtime_health.update(
+        ReconcileResult(error_code="runtime_reconcile_failed")
+    )
+
+    assert web_client.get("/health/live").json() == {"status": "ok"}
+    ready = web_client.get("/health/ready")
+    assert ready.status_code == 503
+    assert ready.json() == {
+        "status": "not_ready",
+        "code": "runtime_reconcile_failed",
+    }
+    assert web_client.get("/login").status_code == 200

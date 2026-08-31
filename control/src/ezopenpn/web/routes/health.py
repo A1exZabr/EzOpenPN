@@ -26,4 +26,13 @@ def ready(request: Request) -> JSONResponse:
         )
     finally:
         engine.dispose()
+    runtime = request.app.state.services.runtime_health.snapshot()
+    if not runtime.ready:
+        return JSONResponse(
+            {
+                "status": "not_ready",
+                "code": runtime.error_code or "runtime_reconcile_failed",
+            },
+            status_code=503,
+        )
     return JSONResponse({"status": "ok"})

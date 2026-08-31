@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+import asyncio
 import os
-from dataclasses import dataclass
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager, suppress
+from dataclasses import dataclass, field
 from datetime import timedelta
 from pathlib import Path
 
@@ -22,8 +25,9 @@ from ezopenpn.profiles.links import (
     TransportLinkConfig,
     encode_url_secret,
 )
+from ezopenpn.profiles.reconcile import RuntimeHealth, RuntimeReconciler
 from ezopenpn.profiles.repository import ProfileRepository
-from ezopenpn.profiles.runtime import RuntimeCoordinator
+from ezopenpn.profiles.runtime import ReconcileResult, RuntimeCoordinator
 from ezopenpn.security.admin import AdminService
 from ezopenpn.security.secrets import SecretCipher
 from ezopenpn.security.sessions import SessionService
@@ -46,6 +50,34 @@ class WebServices:
     runtime: RuntimeCoordinator
     links: ProfileLinkService
     expose_observed_client: bool = False
+    runtime_health: RuntimeHealth = field(default_factory=RuntimeHealth)
+
+
+async def _reconcile_runtime(application: FastAPI) -> None:
+    services = application.state.services
+    try:
+        result = await asyncio.to_thread(services.runtime.reconcile)
+    except Exception:
+        result = ReconcileResult(error_code="runtime_reconcile_failed")
+    services.runtime_health.update(result)
+
+
+@asynccontextmanager
+async def _lifespan(application: FastAPI) -> AsyncIterator[None]:
+    await _reconcile_runtime(application)
+
+    async def periodic_reconciliation() -> None:
+        while True:
+            await asyncio.sleep(60)
+            await _reconcile_runtime(application)
+
+    task = asyncio.create_task(periodic_reconciliation())
+    try:
+        yield
+    finally:
+        task.cancel()
+        with suppress(asyncio.CancelledError):
+            await task
 
 
 def create_app(settings: Settings, services: WebServices) -> FastAPI:
@@ -54,6 +86,7 @@ def create_app(settings: Settings, services: WebServices) -> FastAPI:
         docs_url=None,
         redoc_url=None,
         openapi_url=None,
+        lifespan=_lifespan,
     )
     application.state.settings = settings
     application.state.services = services
@@ -107,6 +140,18 @@ def create_runtime_app() -> FastAPI:
             hysteria_obfs_password=encode_url_secret(secrets.hysteria_obfs_secret),
         ),
     )
+    xray_client = GrpcXrayClient(
+        settings.xray_grpc_target,
+        settings.xray_inbound_tag,
+    )
+    supervisor_client = UnixXraySupervisorClient(settings.supervisor_socket)
+    runtime_health = RuntimeHealth()
+    reconciler = RuntimeReconciler(
+        profile_repository,
+        cipher,
+        xray_client,
+        supervisor_client,
+    )
     services = WebServices(
         admins=AdminService(engine),
         sessions=SessionService(
@@ -122,13 +167,16 @@ def create_runtime_app() -> FastAPI:
             profile_repository,
             cipher,
             link_service,
-            GrpcXrayClient(settings.xray_grpc_target, settings.xray_inbound_tag),
+            xray_client,
             HttpHysteriaClient(
                 str(settings.hysteria_stats_url),
                 encode_url_secret(secrets.hysteria_api_secret),
             ),
-            UnixXraySupervisorClient(settings.supervisor_socket),
+            supervisor_client,
+            reconciler=reconciler,
+            runtime_health=runtime_health,
         ),
         links=link_service,
+        runtime_health=runtime_health,
     )
     return create_app(settings, services)

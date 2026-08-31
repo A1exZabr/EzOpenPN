@@ -1,13 +1,64 @@
 {% extends "base.html" %}
 {% block title %}Панель | EzOpenPN{% endblock %}
 {% block content %}
-  <section class="dashboard-placeholder">
-    <p class="eyebrow">Сервер доступен</p>
-    <h1>Панель готова</h1>
-    <p class="lead">Управление профилями появится на этом экране.</p>
-    <form method="post" action="/logout">
+  <section class="dashboard-head">
+    <div>
+      <p class="eyebrow">Устройства</p>
+      <h1>Ваши профили</h1>
+      <p class="lead">Один профиль на устройство. Его можно отключить отдельно от остальных.</p>
+    </div>
+    <form method="post" action="/logout" class="logout-form">
       <input type="hidden" name="csrf" value="{{ csrf }}">
-      <button class="secondary" type="submit">Выйти</button>
+      <button class="secondary compact" type="submit">Выйти</button>
     </form>
+  </section>
+
+  <section class="create-panel" aria-labelledby="create-title">
+    <div>
+      <p class="eyebrow">Новое устройство</p>
+      <h2 id="create-title">Создать профиль</h2>
+      <p class="muted">Например: Телефон, Ноутбук или Планшет.</p>
+    </div>
+    <form method="post" action="/profiles" class="create-form">
+      <input type="hidden" name="csrf" value="{{ csrf }}">
+      <label for="profile-name">Название устройства</label>
+      <div>
+        <input id="profile-name" name="name" type="text" maxlength="64" required placeholder="Телефон">
+        <button type="submit">Создать профиль</button>
+      </div>
+    </form>
+  </section>
+
+  <section class="profiles-section" aria-labelledby="profiles-title">
+    <div class="section-label">
+      <h2 id="profiles-title">Готовые и ожидающие</h2>
+      <span>{{ profiles|length }}</span>
+    </div>
+    {% if profiles %}
+      <div class="profile-grid">
+        {% for profile in profiles %}
+          <a class="profile-card" href="/profiles/{{ profile.profile_id }}">
+            <span class="device-glyph" aria-hidden="true"></span>
+            <strong>{{ profile.name }}</strong>
+            {% if profile.state.value == "active" %}
+              <span class="status active">Активен</span>
+            {% elif profile.state.value == "disabled" %}
+              <span class="status disabled">Отключён</span>
+            {% else %}
+              <span class="status pending">Нужна проверка</span>
+            {% endif %}
+            <small>Открыть карточку</small>
+          </a>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="empty-state">
+        <span class="empty-lines" aria-hidden="true"><i></i><i></i></span>
+        <div>
+          <h3>Добавьте первое устройство</h3>
+          <p>Введите понятное название выше. Панель подготовит всё остальное сама.</p>
+        </div>
+      </div>
+    {% endif %}
   </section>
 {% endblock %}

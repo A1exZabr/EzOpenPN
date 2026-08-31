@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+{% block title %}{{ profile.name }} | EzOpenPN{% endblock %}
+{% block content %}
+  <nav class="back-nav" aria-label="Навигация">
+    <a href="/">← Все устройства</a>
+  </nav>
+  <section class="profile-hero">
+    <div>
+      <p class="eyebrow">Карточка устройства</p>
+      <h1>{{ profile.name }}</h1>
+    </div>
+    {% if profile.state.value == "active" %}
+      <span class="status active large">Активен</span>
+    {% elif profile.state.value == "disabled" %}
+      <span class="status disabled large">Отключён</span>
+    {% else %}
+      <span class="status pending large">Нужна проверка</span>
+    {% endif %}
+  </section>
+
+  <section class="link-stack" aria-label="Данные подключения">
+    {% if links %}
+      <article class="link-card primary-link">
+        <p class="eyebrow">Рекомендуется</p>
+        <h2>Общая ссылка</h2>
+        <code id="combined-link">{{ links.combined_url }}</code>
+        <button type="button" data-copy-target="combined-link">Скопировать</button>
+      </article>
+    {% else %}
+      <article class="preparing-card">
+        <span class="activity-lines" aria-hidden="true"><i></i><i></i></span>
+        <div>
+          <p class="eyebrow">Автоматическая настройка</p>
+          <h2>Подключение готовится</h2>
+          <p>Обычно это занимает меньше минуты. Обновите страницу немного позже.</p>
+        </div>
+      </article>
+    {% endif %}
+    <div class="transport-grid">
+      <article class="transport-card">
+        <span class="channel-dot cobalt" aria-hidden="true"></span>
+        <div>
+          <p class="eyebrow">Канал A</p>
+          <h3>VLESS + Reality</h3>
+          {% if links %}<code id="channel-a">{{ links.vless_link }}</code>{% else %}<p>Будет доступен после подготовки.</p>{% endif %}
+        </div>
+      </article>
+      <article class="transport-card">
+        <span class="channel-dot teal" aria-hidden="true"></span>
+        <div>
+          <p class="eyebrow">Канал B</p>
+          <h3>Hysteria2</h3>
+          {% if links %}<code id="channel-b">{{ links.hysteria_link }}</code>{% else %}<p>Будет доступен после подготовки.</p>{% endif %}
+        </div>
+      </article>
+    </div>
+  </section>
+
+  <section class="guide" aria-labelledby="guide-title">
+    <p class="eyebrow">Простой импорт</p>
+    <h2 id="guide-title">Добавить за четыре шага</h2>
+    <ol>
+      <li data-step="1"><span>1</span><div><strong>Скопируйте общую ссылку</strong><p>Она добавит оба канала сразу.</p></div></li>
+      <li data-step="2"><span>2</span><div><strong>Откройте приложение</strong><p>Подойдёт клиент с поддержкой указанных каналов.</p></div></li>
+      <li data-step="3"><span>3</span><div><strong>Добавьте из буфера</strong><p>Выберите импорт ссылки или сканирование QR-кода.</p></div></li>
+      <li data-step="4"><span>4</span><div><strong>Выберите профиль</strong><p>Если один канал нестабилен, переключитесь на второй.</p></div></li>
+    </ol>
+    <details>
+      <summary>Технические подсказки</summary>
+      <p>Канал A использует VLESS + Reality + XHTTP. Канал B использует Hysteria2 + Salamander. Если клиент предлагает multiplexing для канала B, отключите его.</p>
+    </details>
+  </section>
+
+  <section class="profile-actions" aria-labelledby="actions-title">
+    <div>
+      <p class="eyebrow">Управление доступом</p>
+      <h2 id="actions-title">Действия</h2>
+    </div>
+    {% if profile.state.value == "active" %}
+      <form method="post" action="/profiles/{{ profile.profile_id }}/disable">
+        <input type="hidden" name="csrf" value="{{ csrf }}">
+        <p>Отключение кратко прервёт канал A у других устройств. Они подключатся снова автоматически.</p>
+        <button class="warning" type="submit">Отключить профиль</button>
+      </form>
+    {% elif profile.state.value == "disabled" or profile.state.value == "error" %}
+      <form method="post" action="/profiles/{{ profile.profile_id }}/enable">
+        <input type="hidden" name="csrf" value="{{ csrf }}">
+        <button type="submit">{% if profile.state.value == "error" %}Повторить подготовку{% else %}Включить профиль{% endif %}</button>
+      </form>
+    {% endif %}
+    <form method="post" action="/profiles/{{ profile.profile_id }}/delete" class="delete-form">
+      <input type="hidden" name="csrf" value="{{ csrf }}">
+      <label><input type="checkbox" name="confirm" value="remove" required> Я понимаю, что прежняя ссылка перестанет работать.</label>
+      <button class="danger" type="submit">Удалить профиль</button>
+    </form>
+  </section>
+{% endblock %}

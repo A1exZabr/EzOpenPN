@@ -8,7 +8,11 @@ from starlette.testclient import TestClient
 
 from ezopenpn.config import AppSettings, DatabaseSettings, Settings
 from ezopenpn.db import create_engine_for, upgrade_database
+from ezopenpn.profiles.repository import ProfileRepository
+from ezopenpn.profiles.runtime import FakeRuntimeCoordinator
+from ezopenpn.profiles.service import ProfileService
 from ezopenpn.security.admin import AdminService
+from ezopenpn.security.secrets import SecretCipher
 from ezopenpn.security.sessions import SessionService
 from ezopenpn.security.throttle import LoginThrottleService
 from ezopenpn.web.app import WebServices, create_app
@@ -24,11 +28,15 @@ def web_app(tmp_path: Path):
     engine = create_engine_for(database)
     admins = AdminService(engine)
     admins.create_initial("owner", "correct passphrase")
+    cipher = SecretCipher(MASTER_KEY)
+    profiles = ProfileRepository(engine, cipher)
     services = WebServices(
         admins=admins,
         sessions=SessionService(engine, MASTER_KEY),
         throttle=LoginThrottleService(engine, MASTER_KEY),
         preauth=PreAuthService(engine, MASTER_KEY),
+        profiles=profiles,
+        runtime=FakeRuntimeCoordinator(ProfileService(profiles, cipher)),
         expose_observed_client=True,
     )
     settings = Settings(
@@ -41,6 +49,19 @@ def web_app(tmp_path: Path):
 @pytest.fixture
 def web_client(web_app) -> TestClient:
     with TestClient(web_app, base_url="https://203.0.113.10:9443") as client:
+        yield client
+
+
+@pytest.fixture
+def authenticated_client(web_app) -> TestClient:
+    with TestClient(web_app, base_url="https://203.0.113.10:9443") as client:
+        csrf = extract_csrf(client.get("/login").text)
+        response = client.post(
+            "/login",
+            data={"login": "owner", "password": "correct passphrase", "csrf": csrf},
+            follow_redirects=False,
+        )
+        assert response.status_code == 303
         yield client
 
 

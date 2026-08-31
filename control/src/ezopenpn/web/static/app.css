@@ -293,6 +293,348 @@ code {
   font-size: clamp(2.8rem, 7vw, 5.2rem);
 }
 
+.dashboard-head,
+.profile-hero {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 32px;
+  padding: clamp(54px, 9vw, 112px) 0 48px;
+}
+
+.dashboard-head h1,
+.profile-hero h1 {
+  font-size: clamp(3.4rem, 8vw, 7rem);
+}
+
+.compact {
+  min-height: 42px;
+  margin: 0;
+  padding: 0 16px;
+}
+
+.create-panel {
+  display: grid;
+  grid-template-columns: minmax(220px, 0.7fr) minmax(360px, 1.3fr);
+  gap: clamp(30px, 7vw, 96px);
+  align-items: end;
+  padding: clamp(28px, 5vw, 48px);
+  border: 1px solid rgba(23, 35, 60, 0.1);
+  border-radius: 24px;
+  background: var(--white);
+  box-shadow: 0 14px 42px rgba(23, 35, 60, 0.08);
+}
+
+.create-panel h2,
+.guide h2,
+.profile-actions h2 {
+  font-size: clamp(2rem, 4vw, 3.4rem);
+}
+
+.create-form label {
+  display: block;
+  margin-bottom: 9px;
+  font-weight: 700;
+}
+
+.create-form > div {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 10px;
+}
+
+.create-form button {
+  margin: 0;
+}
+
+.profiles-section {
+  padding: 72px 0 96px;
+}
+
+.section-label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 22px;
+}
+
+.section-label h2 {
+  font-size: 1.1rem;
+}
+
+.section-label span {
+  display: grid;
+  min-width: 34px;
+  height: 34px;
+  place-items: center;
+  border-radius: 99px;
+  color: var(--muted);
+  background: var(--white);
+  font-family: "SFMono-Regular", Consolas, monospace;
+}
+
+.profile-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.profile-card {
+  min-height: 220px;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-content: space-between;
+  gap: 16px;
+  padding: 24px;
+  border: 1px solid rgba(23, 35, 60, 0.1);
+  border-radius: 20px;
+  background: var(--white);
+  text-decoration: none;
+  transition: border-color 160ms ease, transform 160ms ease;
+}
+
+.profile-card:hover {
+  border-color: rgba(49, 87, 213, 0.45);
+  transform: translateY(-2px);
+}
+
+.profile-card strong {
+  grid-column: 1 / -1;
+  font-size: 1.45rem;
+}
+
+.profile-card small {
+  align-self: end;
+  color: var(--muted);
+}
+
+.device-glyph {
+  width: 42px;
+  height: 58px;
+  border: 3px solid var(--ink);
+  border-radius: 9px;
+}
+
+.device-glyph::after {
+  content: "";
+  width: 12px;
+  height: 3px;
+  display: block;
+  margin: 46px auto 0;
+  border-radius: 99px;
+  background: var(--ink);
+}
+
+.status {
+  width: max-content;
+  padding: 6px 9px;
+  border-radius: 999px;
+  font-size: 0.76rem;
+  font-weight: 750;
+}
+
+.status.active {
+  color: #12665f;
+  background: #dcf5f1;
+}
+
+.status.disabled {
+  color: #5d687d;
+  background: #e9edf3;
+}
+
+.status.pending {
+  color: #7c4e12;
+  background: #fff0d1;
+}
+
+.status.large {
+  padding: 9px 13px;
+  font-size: 0.85rem;
+}
+
+.empty-state,
+.preparing-card {
+  display: flex;
+  gap: 28px;
+  align-items: center;
+  padding: 34px;
+  border: 1px dashed #aeb9ca;
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.58);
+}
+
+.empty-state h3,
+.preparing-card h2 {
+  margin: 0;
+}
+
+.empty-state p,
+.preparing-card p {
+  margin: 8px 0 0;
+  color: var(--muted);
+}
+
+.empty-lines,
+.activity-lines {
+  width: 76px;
+  display: grid;
+  flex: 0 0 auto;
+  gap: 9px;
+}
+
+.empty-lines i,
+.activity-lines i {
+  height: 7px;
+  border-radius: 99px;
+  background: var(--cobalt);
+}
+
+.empty-lines i:last-child,
+.activity-lines i:last-child {
+  width: 72%;
+  margin-left: auto;
+  background: var(--channel);
+}
+
+.back-nav {
+  padding-top: 42px;
+}
+
+.back-nav a {
+  color: var(--muted);
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.profile-hero {
+  padding-top: 42px;
+}
+
+.link-stack {
+  display: grid;
+  gap: 18px;
+}
+
+.preparing-card {
+  min-height: 190px;
+  border-style: solid;
+  background: var(--white);
+  box-shadow: 0 14px 42px rgba(23, 35, 60, 0.07);
+}
+
+.transport-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.transport-card {
+  min-height: 150px;
+  display: flex;
+  gap: 18px;
+  padding: 24px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.transport-card h3 {
+  margin: 0;
+  font-size: 1.35rem;
+}
+
+.transport-card p:last-child {
+  color: var(--muted);
+}
+
+.channel-dot {
+  width: 11px;
+  height: 11px;
+  margin-top: 5px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+}
+
+.channel-dot.cobalt {
+  background: var(--cobalt);
+}
+
+.channel-dot.teal {
+  background: var(--channel);
+}
+
+.guide,
+.profile-actions {
+  margin-top: 72px;
+  padding: clamp(28px, 5vw, 48px);
+  border-radius: 24px;
+  background: var(--white);
+}
+
+.guide ol {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 18px;
+  margin: 36px 0;
+  padding: 0;
+  list-style: none;
+}
+
+.guide li {
+  display: grid;
+  gap: 16px;
+  align-content: start;
+  padding-top: 18px;
+  border-top: 3px solid var(--line);
+}
+
+.guide li > span {
+  color: var(--cobalt);
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-weight: 800;
+}
+
+.guide li strong {
+  display: block;
+}
+
+.guide li p {
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.profile-actions {
+  display: grid;
+  gap: 24px;
+  margin-bottom: 80px;
+}
+
+.profile-actions form {
+  padding-top: 20px;
+  border-top: 1px solid var(--line);
+}
+
+.profile-actions form p,
+.delete-form label {
+  display: block;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+button.warning {
+  color: #613300;
+  background: #ffd792;
+}
+
+button.danger {
+  background: var(--alert);
+}
+
+.delete-form input[type="checkbox"] {
+  margin-right: 8px;
+}
+
 .footer {
   min-height: 86px;
   display: flex;
@@ -313,6 +655,23 @@ code {
     grid-template-columns: 1fr;
     gap: 20px;
     padding: 18px 0 56px;
+  }
+
+  .dashboard-head,
+  .profile-hero {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .create-panel,
+  .profile-grid,
+  .transport-grid,
+  .guide ol {
+    grid-template-columns: 1fr;
+  }
+
+  .create-form > div {
+    grid-template-columns: 1fr;
   }
 
   .welcome-panel {

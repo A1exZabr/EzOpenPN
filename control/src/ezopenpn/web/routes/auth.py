@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hmac
 import math
 from datetime import UTC, datetime
 from typing import cast
@@ -136,28 +137,14 @@ async def login(request: Request) -> Response:
     return response
 
 
-@router.get("/", response_class=HTMLResponse)
-def dashboard(request: Request) -> Response:
-    browser = authenticated_browser(request)
-    if browser is None:
-        return RedirectResponse("/login", status_code=303)
-    return cast(
-        HTMLResponse,
-        request.app.state.templates.TemplateResponse(
-            request=request,
-            name="dashboard.html",
-            context={"browser": browser, "csrf": browser.csrf_token},
-        ),
-    )
-
-
 @router.post("/logout")
 async def logout(request: Request) -> Response:
     browser = authenticated_browser(request)
     values = await _form(request)
     if (
         browser is None
-        or values.get("csrf", "") != browser.csrf_token
+        or not values.get("csrf", "").isascii()
+        or not hmac.compare_digest(values.get("csrf", ""), browser.csrf_token)
         or not request.app.state.services.sessions.validate_csrf(
             browser.identity, values.get("csrf", "")
         )

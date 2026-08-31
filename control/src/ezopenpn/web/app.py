@@ -10,12 +10,14 @@ from fastapi.templating import Jinja2Templates
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from ezopenpn.config import Settings
+from ezopenpn.profiles.repository import ProfileRepository
+from ezopenpn.profiles.runtime import RuntimeCoordinator
 from ezopenpn.security.admin import AdminService
 from ezopenpn.security.sessions import SessionService
 from ezopenpn.security.throttle import LoginThrottleService
 from ezopenpn.web.middleware import RequestPolicyMiddleware
 from ezopenpn.web.preauth import PreAuthService
-from ezopenpn.web.routes import auth, health
+from ezopenpn.web.routes import auth, health, profiles
 
 _WEB_ROOT = Path(__file__).resolve().parent
 
@@ -26,6 +28,8 @@ class WebServices:
     sessions: SessionService
     throttle: LoginThrottleService
     preauth: PreAuthService
+    profiles: ProfileRepository
+    runtime: RuntimeCoordinator
     expose_observed_client: bool = False
 
 
@@ -44,6 +48,7 @@ def create_app(settings: Settings, services: WebServices) -> FastAPI:
     )
     application.include_router(health.router)
     application.include_router(auth.router)
+    application.include_router(profiles.router)
     application.add_middleware(
         TrustedHostMiddleware,
         allowed_hosts=[str(settings.public_ip), "control", "localhost", "127.0.0.1"],

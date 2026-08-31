@@ -5,7 +5,7 @@ from collections.abc import Callable
 from datetime import UTC, datetime
 from uuid import UUID, uuid4
 
-from sqlalchemy import Engine, select, text
+from sqlalchemy import Engine, delete, select, text
 from sqlalchemy.exc import IntegrityError
 
 from ezopenpn.db import session_scope
@@ -168,3 +168,16 @@ class ProfileRepository:
             profile.disabled_at = timestamp if state is ProfileState.DISABLED else None
             session.flush()
             return _record(profile, digest)
+
+    def delete_local(self, profile_id: UUID) -> None:
+        with session_scope(self._engine) as session:
+            session.execute(text("BEGIN IMMEDIATE"))
+            profile = session.get(Profile, str(profile_id))
+            if profile is None:
+                raise ProfileNotFound("profile is unavailable")
+            profile.wrapped_profile_key = None
+            session.flush()
+            session.execute(
+                delete(ProfileLookup).where(ProfileLookup.profile_id == profile.id)
+            )
+            session.delete(profile)

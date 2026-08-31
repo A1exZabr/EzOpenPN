@@ -20,6 +20,8 @@ source "${library_root}/preflight.sh"
 source "${library_root}/diagnostics.sh"
 # shellcheck disable=SC1091
 source "${library_root}/admin.sh"
+# shellcheck disable=SC1091
+source "${library_root}/backup.sh"
 unset library_root
 
 usage() {
@@ -28,7 +30,9 @@ usage() {
     '  ezopenpn status' \
     '  ezopenpn doctor' \
     '  ezopenpn logs SERVICE [--since SECONDS] [--tail LINES]' \
-    '  ezopenpn admin reset-password'
+    '  ezopenpn admin reset-password' \
+    '  ezopenpn backup' \
+    '  ezopenpn restore ARCHIVE'
 }
 
 dispatch_logs() {
@@ -88,6 +92,14 @@ main() {
         return 2
       fi
       reset_admin_password
+      ;;
+    backup)
+      [[ $# -eq 1 ]] || { usage >&2; return 2; }
+      backup_create
+      ;;
+    restore)
+      [[ $# -eq 2 ]] || { usage >&2; return 2; }
+      backup_restore "$2"
       ;;
     *)
       usage >&2

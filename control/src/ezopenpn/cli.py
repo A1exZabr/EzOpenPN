@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 from collections.abc import Sequence
 from pathlib import Path
@@ -9,6 +10,7 @@ from typing import IO, cast
 from alembic.util.exc import CommandError
 from sqlalchemy.exc import OperationalError, SQLAlchemyError
 
+from ezopenpn.backup import create_online_backup, verify_database
 from ezopenpn.config import Settings
 from ezopenpn.db import create_engine_for, upgrade_database
 from ezopenpn.security.admin import (
@@ -23,6 +25,7 @@ EXIT_INVALID_INPUT = 2
 EXIT_DATABASE_UNAVAILABLE = 3
 EXIT_STATE_CONFLICT = 4
 EXIT_MIGRATION_FAILED = 5
+EXIT_BACKUP_FAILED = 6
 _DEFAULT_CONFIG = Path("/etc/ezopenpn/control.toml")
 _MAX_PASSWORD_LENGTH = 1024
 
@@ -44,6 +47,10 @@ def _parser() -> argparse.ArgumentParser:
     reset.add_argument("--password-stdin", action="store_true", required=True)
 
     commands.add_parser("migrate")
+    backup = commands.add_parser("backup-database")
+    backup.add_argument("--output", type=Path, required=True)
+    verify = commands.add_parser("verify-database")
+    verify.add_argument("--path", type=Path, required=True)
     return parser
 
 
@@ -94,6 +101,46 @@ def main(
     settings = _load_settings(config_path, error_stream)
     if settings is None:
         return EXIT_INVALID_INPUT
+
+    if command_name == "verify-database":
+        verification = verify_database(cast(Path, arguments.path))
+        if not verification.ok or verification.schema_version is None:
+            print("Резервная копия хранилища не прошла проверку.", file=error_stream)
+            return EXIT_STATE_CONFLICT
+        print(
+            json.dumps(
+                {
+                    "quick_check": verification.quick_check,
+                    "schema_version": verification.schema_version,
+                    "sha256": verification.sha256,
+                },
+                sort_keys=True,
+            ),
+            file=output_stream,
+        )
+        return EXIT_OK
+
+    if command_name == "backup-database":
+        engine = create_engine_for(settings.database_path)
+        try:
+            backup_result = create_online_backup(engine, cast(Path, arguments.output))
+        except (OSError, SQLAlchemyError, ValueError):
+            print("Резервную копию хранилища создать не удалось.", file=error_stream)
+            return EXIT_BACKUP_FAILED
+        finally:
+            engine.dispose()
+        print(
+            json.dumps(
+                {
+                    "quick_check": backup_result.quick_check,
+                    "schema_version": backup_result.schema_version,
+                    "sha256": backup_result.sha256,
+                },
+                sort_keys=True,
+            ),
+            file=output_stream,
+        )
+        return EXIT_OK
 
     migration_status = _migrate(settings.database_path, error_stream)
     if migration_status != EXIT_OK:

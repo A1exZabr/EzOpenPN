@@ -241,6 +241,32 @@ def _socket_ready(port: int) -> bool:
         return connection.connect_ex(("127.0.0.1", port)) == 0
 
 
+def _runtime_logs(
+    compose: list[str], *, environment: dict[str, str]
+) -> str:
+    logs = subprocess.run(
+        [
+            *compose,
+            "logs",
+            "--no-color",
+            "--tail",
+            "120",
+            "control",
+            "target",
+            "client",
+            "hysteria",
+        ],
+        cwd=_ROOT,
+        env=environment,
+        stdin=subprocess.DEVNULL,
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=20,
+    )
+    return _redact(logs.stdout + logs.stderr)
+
+
 @pytest.mark.integration
 def test_real_runtimes_accept_management_and_revocation(
     tmp_path: Path, request: pytest.FixtureRequest
@@ -348,31 +374,27 @@ def test_real_runtimes_accept_management_and_revocation(
         try:
             _wait_for(lambda: _socket_ready(socks_port))
         except RuntimeError:
-            logs = subprocess.run(
-                [*compose, "logs", "--no-color", "--tail", "80", "client", "hysteria"],
-                cwd=_ROOT,
-                env=environment,
-                stdin=subprocess.DEVNULL,
-                capture_output=True,
-                text=True,
-                check=False,
-                timeout=20,
-            )
             raise RuntimeError(
-                f"runtime client did not become ready: {_redact(logs.stdout + logs.stderr)}"
+                f"runtime client did not become ready: "
+                f"{_runtime_logs(compose, environment=environment)}"
             ) from None
-        _run(
-            [
-                "curl",
-                "--fail",
-                "--silent",
-                "--show-error",
-                "--socks5-hostname",
-                f"127.0.0.1:{socks_port}",
-                "http://target:8080/",
-            ],
-            environment=environment,
-        )
+        try:
+            _run(
+                [
+                    "curl",
+                    "--fail",
+                    "--silent",
+                    "--show-error",
+                    "--socks5-hostname",
+                    f"127.0.0.1:{socks_port}",
+                    "http://target:8080/",
+                ],
+                environment=environment,
+            )
+        except RuntimeError as exc:
+            raise RuntimeError(
+                f"{exc}; logs: {_runtime_logs(compose, environment=environment)}"
+            ) from None
         stats_url = f"http://127.0.0.1:{stats_port}"
         headers = {"Authorization": "test-stats-value-5678"}
 

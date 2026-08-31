@@ -197,7 +197,7 @@ git commit -m "ci: enforce code and supply security gates"
 - Create: `tests/release/fixtures/images.release.json`
 
 **Interfaces:**
-- Produces GHCR images: `ezopenpn-control`, `ezopenpn-xray`, `ezopenpn-cert-sync`.
+- Produces GHCR images: `ezopenpn-control`, `ezopenpn-xray`, `ezopenpn-cert-sync`, `ezopenpn-gateway`.
 - Produces per-image digest, SPDX SBOM and GitHub provenance attestation.
 
 - [ ] **Step 1: Write failing manifest tests**

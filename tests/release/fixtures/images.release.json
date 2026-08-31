@@ -24,6 +24,15 @@
       "workflow_identity": "https://github.com/A1exZabr/EzOpenPN/.github/workflows/images.yml@refs/heads/fixture"
     },
     {
+      "name": "gateway",
+      "reference": "ghcr.io/a1exzabr/ezopenpn-gateway",
+      "digest": "sha256:4444444444444444444444444444444444444444444444444444444444444444",
+      "sbom_path": "gateway.spdx.json",
+      "sbom_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "provenance_subject": "ghcr.io/a1exzabr/ezopenpn-gateway@sha256:4444444444444444444444444444444444444444444444444444444444444444",
+      "workflow_identity": "https://github.com/A1exZabr/EzOpenPN/.github/workflows/images.yml@refs/heads/fixture"
+    },
+    {
       "name": "xray",
       "reference": "ghcr.io/a1exzabr/ezopenpn-xray",
       "digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222",

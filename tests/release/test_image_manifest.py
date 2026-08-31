@@ -25,7 +25,12 @@ def test_release_image_manifest_has_attested_digest() -> None:
 
     images = manifest["images"]
     assert isinstance(images, list)
-    assert {image["name"] for image in images} == {"control", "xray", "cert-sync"}
+    assert {image["name"] for image in images} == {
+        "control",
+        "xray",
+        "gateway",
+        "cert-sync",
+    }
     for image in images:
         assert isinstance(image, dict)
         reference = image["reference"]
@@ -49,3 +54,4 @@ def test_image_workflow_is_manual_and_never_writes_latest() -> None:
     assert "attest-build-provenance" in workflow
     assert "attest-sbom" in workflow
     assert "cosign sign" in workflow
+    assert "dockerfile: runtime/Dockerfile.gateway" in workflow

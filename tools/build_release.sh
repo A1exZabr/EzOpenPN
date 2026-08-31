@@ -136,19 +136,16 @@ project_by_name = {
     for item in project_images
     if isinstance(item, dict) and isinstance(item.get("name"), str)
 }
-if set(project_by_name) != {"control", "xray", "cert-sync"}:
+if set(project_by_name) != {"control", "xray", "cert-sync", "gateway"}:
     raise SystemExit("project image manifest is incomplete")
 
 upstream = tomllib.loads(upstream_lock_path.read_text(encoding="utf-8"))["images"]
 images = {
     name: image_entry(project_by_name[name].get("reference"), project_by_name[name].get("digest"))
-    for name in ("control", "xray", "cert-sync")
+    for name in ("control", "xray", "cert-sync", "gateway")
 }
 images["hysteria"] = image_entry(
     upstream["hysteria"].get("repository"), upstream["hysteria"].get("digest")
-)
-images["gateway"] = image_entry(
-    upstream["caddy"].get("repository"), upstream["caddy"].get("digest")
 )
 
 tracked = subprocess.run(

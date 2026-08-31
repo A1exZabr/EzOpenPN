@@ -1,0 +1,99 @@
+#!/usr/bin/env bash
+
+set +x
+set -Eeuo pipefail
+umask 077
+
+library_root="${EZOPENPN_LIBRARY_ROOT:-/etc/ezopenpn/current/installer/lib}"
+if [[ "$library_root" != /* || ! -d "$library_root" || -L "$library_root" ]]; then
+  printf '%s\n' '[EzOpenPN] E_INSTALL_UNAVAILABLE: библиотеки команд не найдены' >&2
+  exit 3
+fi
+
+# shellcheck disable=SC1091
+source "${library_root}/common.sh"
+# shellcheck disable=SC1091
+source "${library_root}/lock.sh"
+# shellcheck disable=SC1091
+source "${library_root}/preflight.sh"
+# shellcheck disable=SC1091
+source "${library_root}/diagnostics.sh"
+# shellcheck disable=SC1091
+source "${library_root}/admin.sh"
+unset library_root
+
+usage() {
+  printf '%s\n' \
+    'Использование:' \
+    '  ezopenpn status' \
+    '  ezopenpn doctor' \
+    '  ezopenpn logs SERVICE [--since SECONDS] [--tail LINES]' \
+    '  ezopenpn admin reset-password'
+}
+
+dispatch_logs() {
+  if [[ $# -lt 1 ]]; then
+    diagnostic_logs ""
+    return
+  fi
+  local service="$1"
+  shift
+  local since=3600 tail_count=200
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --since)
+        if [[ $# -lt 2 ]]; then
+          die 2 "E_LOG_ARGUMENT: после --since нужно число"
+          return
+        fi
+        since="$2"
+        shift 2
+        ;;
+      --tail)
+        if [[ $# -lt 2 ]]; then
+          die 2 "E_LOG_ARGUMENT: после --tail нужно число"
+          return
+        fi
+        tail_count="$2"
+        shift 2
+        ;;
+      *)
+        die 2 "E_LOG_ARGUMENT: неизвестный параметр логов"
+        return
+        ;;
+    esac
+  done
+  diagnostic_logs "$service" "$since" "$tail_count"
+}
+
+main() {
+  require_root || return
+  local command="${1:-}"
+  case "$command" in
+    status)
+      [[ $# -eq 1 ]] || { usage >&2; return 2; }
+      diagnostic_status
+      ;;
+    doctor)
+      [[ $# -eq 1 ]] || { usage >&2; return 2; }
+      diagnostic_doctor
+      ;;
+    logs)
+      shift
+      dispatch_logs "$@"
+      ;;
+    admin)
+      if [[ $# -ne 2 || "${2:-}" != reset-password ]]; then
+        usage >&2
+        return 2
+      fi
+      reset_admin_password
+      ;;
+    *)
+      usage >&2
+      return 2
+      ;;
+  esac
+}
+
+main "$@"

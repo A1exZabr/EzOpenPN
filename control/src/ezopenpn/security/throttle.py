@@ -6,7 +6,7 @@ from datetime import UTC, datetime, timedelta
 from ipaddress import ip_address
 from uuid import uuid4
 
-from sqlalchemy import Engine, and_, or_, select, text
+from sqlalchemy import Engine, and_, delete, or_, select, text
 
 from ezopenpn.db import session_scope
 from ezopenpn.models import LoginThrottle
@@ -36,7 +36,11 @@ class LoginThrottleService:
         self._login_key = _derive_key(master_key, _LOGIN_LABEL)
 
     def _identities(self, ip: str, login: str) -> tuple[tuple[str, bytes], tuple[str, bytes]]:
-        normalized_ip = ip_address(ip.strip()).compressed.encode("ascii")
+        direct_peer = ip.strip()
+        try:
+            normalized_ip = ip_address(direct_peer).compressed.encode("ascii")
+        except ValueError:
+            normalized_ip = ("peer:" + direct_peer[:255].casefold()).encode("utf-8")
         normalized_login = unicodedata.normalize("NFKC", login[:1024]).strip().casefold()
         normalized_login_bytes = normalized_login.encode("utf-8")
         return (
@@ -102,3 +106,22 @@ class LoginThrottleService:
                 if row.blocked_until is not None and row.blocked_until > timestamp
             ]
             return max(remaining, default=timedelta())
+
+    def clear(self, ip: str, login: str) -> None:
+        (ip_scope, ip_digest), (login_scope, login_digest) = self._identities(ip, login)
+        with session_scope(self._engine) as session:
+            session.execute(text("BEGIN IMMEDIATE"))
+            session.execute(
+                delete(LoginThrottle).where(
+                    or_(
+                        and_(
+                            LoginThrottle.scope == ip_scope,
+                            LoginThrottle.key_digest == ip_digest,
+                        ),
+                        and_(
+                            LoginThrottle.scope == login_scope,
+                            LoginThrottle.key_digest == login_digest,
+                        ),
+                    )
+                )
+            )

@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block title %}Панель | EzOpenPN{% endblock %}
+{% block content %}
+  <section class="dashboard-placeholder">
+    <p class="eyebrow">Сервер доступен</p>
+    <h1>Панель готова</h1>
+    <p class="lead">Управление профилями появится на этом экране.</p>
+    <form method="post" action="/logout">
+      <input type="hidden" name="csrf" value="{{ csrf }}">
+      <button class="secondary" type="submit">Выйти</button>
+    </form>
+  </section>
+{% endblock %}

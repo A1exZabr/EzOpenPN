@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="light">
+    <title>{% block title %}EzOpenPN{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', path='/app.css') }}">
+  </head>
+  <body>
+    <div class="page-shell">
+      <header class="topbar">
+        <a class="brand" href="/" aria-label="EzOpenPN, главная">
+          <span class="brand-mark" aria-hidden="true"><i></i><i></i></span>
+          <span>EzOpenPN</span>
+        </a>
+        <span class="local-label">Личный сервер</span>
+      </header>
+      <main>{% block content %}{% endblock %}</main>
+      <footer class="footer">
+        <span>Восстановление доступа</span>
+        <code>sudo ezopenpn admin reset-password</code>
+      </footer>
+    </div>
+  </body>
+</html>

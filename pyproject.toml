@@ -45,6 +45,9 @@ addopts = "--strict-config --strict-markers"
 testpaths = ["control/tests"]
 pythonpath = ["."]
 asyncio_mode = "strict"
+filterwarnings = [
+  "ignore:Using `httpx` with `starlette.testclient` is deprecated:starlette.exceptions.StarletteDeprecationWarning",
+]
 
 [tool.coverage.run]
 branch = true

@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import json
 import os
-import socket
 import ssl
 import subprocess
 import time
@@ -285,49 +284,6 @@ class StackHarness:
             raise RuntimeError("protected test material cannot be read")
         return result.stdout
 
-    @staticmethod
-    def _read_exact(stream: socket.socket, size: int) -> bytes:
-        result = bytearray()
-        while len(result) < size:
-            chunk = stream.recv(size - len(result))
-            if not chunk:
-                raise OSError("SOCKS connection closed early")
-            result.extend(chunk)
-        return bytes(result)
-
-    @classmethod
-    def _probe_socks_health(cls, port: int) -> bool:
-        try:
-            with socket.create_connection(("127.0.0.1", port), timeout=1) as stream:
-                stream.sendall(b"\x05\x01\x00")
-                if cls._read_exact(stream, 2) != b"\x05\x00":
-                    return False
-                host = b"control"
-                stream.sendall(
-                    b"\x05\x01\x00\x03"
-                    + bytes((len(host),))
-                    + host
-                    + (8000).to_bytes(2, "big")
-                )
-                response = cls._read_exact(stream, 4)
-                if response[:2] != b"\x05\x00":
-                    return False
-                if response[3] == 1:
-                    cls._read_exact(stream, 6)
-                elif response[3] == 3:
-                    cls._read_exact(stream, cls._read_exact(stream, 1)[0] + 2)
-                elif response[3] == 4:
-                    cls._read_exact(stream, 18)
-                else:
-                    return False
-                stream.sendall(
-                    b"GET /health/live HTTP/1.1\r\nHost: control\r\nConnection: close\r\n\r\n"
-                )
-                payload = stream.recv(256)
-                return payload.startswith(b"HTTP/1.1 200")
-        except OSError:
-            return False
-
     def verify_hysteria_handshake(self, ca_path: Path) -> None:
         auth = (self.root / "test-client-auth").read_text(encoding="ascii")
         obfs = urlsafe_b64encode(
@@ -370,8 +326,6 @@ class StackHarness:
             f"{os.getuid()}:{os.getgid()}",
             "--network",
             f"{self.project}_backend",
-            "--publish",
-            "127.0.0.1::1080/tcp",
             "--cap-drop",
             "ALL",
             "--security-opt",
@@ -402,17 +356,19 @@ class StackHarness:
                 if status != "running":
                     diagnostic = f"client stopped with state {status or 'missing'}"
                     break
-                published = subprocess.run(
-                    ["docker", "port", client_name, "1080/tcp"],
+                logs = subprocess.run(
+                    ["docker", "logs", "--tail", "30", client_name],
                     capture_output=True,
                     text=True,
                     check=False,
                     timeout=10,
-                ).stdout.strip()
-                if published:
-                    port = int(published.rsplit(":", 1)[1])
-                    if self._probe_socks_health(port):
-                        return
+                )
+                output = logs.stdout + logs.stderr
+                if (
+                    "connected to server" in output
+                    and "SOCKS5 server listening" in output
+                ):
+                    return
                 time.sleep(0.25)
             logs = subprocess.run(
                 ["docker", "logs", "--tail", "30", client_name],

@@ -289,9 +289,9 @@ def test_real_runtimes_accept_management_and_revocation(
             "-days",
             "1",
             "-subj",
-            "/CN=127.0.0.1",
+            "/CN=hysteria",
             "-addext",
-            "subjectAltName=IP:127.0.0.1",
+            "subjectAltName=DNS:hysteria",
             "-keyout",
             str(certificate_root / "privkey.pem"),
             "-out",
@@ -316,7 +316,7 @@ def test_real_runtimes_accept_management_and_revocation(
     client_config = {
         "server": "hysteria:8443",
         "auth": "profile-auth-value-1234",
-        "tls": {"sni": "127.0.0.1", "insecure": True},
+        "tls": {"sni": "hysteria", "insecure": True},
         "obfs": {
             "type": "salamander",
             "salamander": {"password": "test-obfs-value-1234"},

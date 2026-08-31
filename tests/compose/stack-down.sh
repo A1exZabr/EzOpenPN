@@ -37,6 +37,16 @@ test_root="${state_values[0]}"
 project="${state_values[1]}"
 environment_path="${state_values[2]}"
 
+rotation_ids=()
+while IFS= read -r container_id; do
+  if [[ -n "$container_id" ]]; then
+    rotation_ids+=("$container_id")
+  fi
+done < <(docker ps -aq --filter "label=com.ezopenpn.stack-test=${project}")
+if [[ ${#rotation_ids[@]} -gt 0 ]]; then
+  docker rm --force "${rotation_ids[@]}" >/dev/null 2>&1 || true
+fi
+
 docker compose \
   --env-file "$environment_path" \
   -f "${repository_root}/deploy/compose.yaml" \

@@ -21,7 +21,6 @@ jobs:
       actions: read
       contents: read
       packages: read
-      security-events: write
     strategy:
       fail-fast: false
       matrix:
@@ -31,7 +30,7 @@ jobs:
       - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16
         if: matrix.language == 'go'
         with:
-          go-version: "1.26.0"
+          go-version: "1.26.7"
           cache: false
       - name: Initialize CodeQL
         uses: github/codeql-action/init@cdf488f595d80d6e07e03d4674febd5ab45fa938
@@ -46,3 +45,7 @@ jobs:
         uses: github/codeql-action/analyze@cdf488f595d80d6e07e03d4674febd5ab45fa938
         with:
           category: /language:${{ matrix.language }}
+          output: codeql-results
+          upload: false
+      - name: Reject actionable findings
+        run: python tools/check_sarif.py codeql-results

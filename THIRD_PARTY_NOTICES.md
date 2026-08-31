@@ -8,10 +8,10 @@
 |---|---|---|---|
 | `docker.io/library/caddy` | `2.11.4-alpine` | Apache-2.0 для Caddy, лицензии Alpine packages отдельно | Базовый образ `gateway` с неизменённым бинарным Caddy |
 | `gcr.io/distroless/base-debian12` | `nonroot` | Apache-2.0 для Distroless tooling, лицензии Debian files отдельно | Минимальный финальный образ Go helpers |
-| `docker.io/library/golang` | `1.26.0-bookworm` | BSD-3-Clause для packaging и Go, лицензии Debian files отдельно | Только стадия сборки, не входит целиком в финальный образ |
+| `docker.io/library/golang` | `1.26.7-bookworm` | BSD-3-Clause для packaging и Go, лицензии Debian files отдельно | Только стадия сборки, не входит целиком в финальный образ |
 | `docker.io/tobyxdd/hysteria` | `v2.12.2` | MIT | Неизменённый runtime-образ Hysteria2 |
 | `docker.io/library/python` | `3.12.11-slim-bookworm` | MIT для packaging, PSF-2.0 для Python, лицензии Debian files отдельно | База сборки и runtime `control` |
-| `ghcr.io/xtls/xray-core` | `26.3.27` | MPL-2.0 | Бинарный Xray копируется в минимальный финальный образ вместе с MPL-2.0 text |
+| `ghcr.io/xtls/xray-core` | `26.3.27` | MPL-2.0 | Версия и официальный digest служат upstream lock; финальный бинарный файл собирается из commit этой версии с закреплёнными security updates модулей |
 
 Основные upstream-источники:
 
@@ -27,6 +27,8 @@
 ## Сокращённые схемы Xray
 
 Файлы `proto/xray/**/*.proto` сокращены из XTLS/Xray-core `v26.3.27`, commit `d2758a023cd7f4174a5a5fa4ff66e487d4342ba0`. Они и сгенерированные Python derivatives в `control/src/ezopenpn/integrations/xray_proto` остаются под MPL-2.0. Полный текст находится в `proto/xray/LICENSE`; точные upstream-ссылки перечислены в `proto/xray/UPSTREAM.md`.
+
+Runtime Xray собирается из того же commit. Архив source закреплён checksum в `runtime/xray-source.lock`; `runtime/xray-patched.mod` фиксирует `golang.org/x/crypto` v0.55.0, `golang.org/x/net` v0.58.0, `golang.org/x/text` v0.41.0 и `google.golang.org/grpc` v1.82.1 для устранения известных проблем release-зависимостей. Эти производные module files остаются под MPL-2.0.
 
 ## Прямые Python-зависимости runtime
 

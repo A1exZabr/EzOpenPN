@@ -11,6 +11,8 @@ path = [
   "proto/xray/**/*.proto",
   "proto/xray/LICENSE",
   "control/src/ezopenpn/integrations/xray_proto/**/*.py",
+  "runtime/xray-patched.mod",
+  "runtime/xray-patched.sum",
 ]
 precedence = "override"
 SPDX-FileCopyrightText = [

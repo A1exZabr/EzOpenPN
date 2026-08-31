@@ -77,3 +77,20 @@ def test_final_runtime_images_are_non_root() -> None:
 def test_gateway_image_removes_unneeded_file_capability() -> None:
     dockerfile = (_ROOT / "runtime" / "Dockerfile.gateway").read_text(encoding="utf-8")
     assert "setcap -r /usr/bin/caddy" in dockerfile
+
+
+def test_xray_source_and_security_refresh_are_immutable() -> None:
+    lock = tomllib.loads(
+        (_ROOT / "runtime/xray-source.lock").read_text(encoding="utf-8")
+    )
+    dockerfile = (_ROOT / "runtime/Dockerfile.xray").read_text(encoding="utf-8")
+    module = (_ROOT / "runtime/xray-patched.mod").read_text(encoding="utf-8")
+    assert lock["version"] == "26.3.27"
+    assert re.fullmatch(r"[0-9a-f]{40}", lock["commit"])
+    assert re.fullmatch(r"[0-9a-f]{64}", lock["sha256"])
+    assert lock["url"].startswith("https://github.com/XTLS/Xray-core/archive/")
+    assert lock["url"] in dockerfile
+    assert f"sha256:{lock['sha256']}" in dockerfile
+    assert "COPY --from=xray-upstream /usr/local/bin/xray" not in dockerfile
+    for name, version in lock["modules"].items():
+        assert f"{name} {version}" in module

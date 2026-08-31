@@ -1,13 +1,15 @@
 # syntax=docker/dockerfile:1.7
 
 ARG GO_BUILDER_REPOSITORY=docker.io/library/golang
-ARG GO_BUILDER_DIGEST=sha256:4f7e5f23bfacf4c2934ba70c132532742b6a53f01a4209e2c2eb7bd06c16f0bc
-ARG XRAY_UPSTREAM_REPOSITORY=ghcr.io/xtls/xray-core
-ARG XRAY_UPSTREAM_DIGEST=sha256:4198aa816f04eeacde6470f4f07947eb4f701a1bba3657e366636681eaae5855
+ARG GO_BUILDER_DIGEST=sha256:659cc38c1a394eeb4dd7e31fff6df128bd33444dcc7afd70e3bed5225749dbc0
 ARG DISTROLESS_BASE_REPOSITORY=gcr.io/distroless/base-debian12
 ARG DISTROLESS_BASE_DIGEST=sha256:5883c320d81f76c764e114c9ab14054f037bb040907816fc9028d80d9602a7c3
+ARG XRAY_SOURCE_URL=https://github.com/XTLS/Xray-core/archive/d2758a023cd7f4174a5a5fa4ff66e487d4342ba0.tar.gz
+ARG XRAY_SOURCE_SHA256=sha256:14fa566ee0a801d3d51144c67018b449f5dcf462ddfacadd032da069787e61f9
 
 FROM ${GO_BUILDER_REPOSITORY}@${GO_BUILDER_DIGEST} AS builder
+ARG XRAY_SOURCE_URL
+ARG XRAY_SOURCE_SHA256
 WORKDIR /src/runtime
 COPY runtime/go.mod ./go.mod
 RUN go mod download
@@ -16,11 +18,21 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
     -trimpath -buildvcs=false -ldflags="-s -w" \
     -o /out/xray-supervisor ./cmd/xray-supervisor
 
-FROM ${XRAY_UPSTREAM_REPOSITORY}@${XRAY_UPSTREAM_DIGEST} AS xray-upstream
+ADD --checksum=${XRAY_SOURCE_SHA256} ${XRAY_SOURCE_URL} /tmp/xray-source.tar.gz
+RUN install -d /src/xray \
+    && tar -xzf /tmp/xray-source.tar.gz --strip-components=1 -C /src/xray
+WORKDIR /src/xray
+COPY runtime/xray-patched.mod ./go.mod
+COPY runtime/xray-patched.sum ./go.sum
+RUN GOTOOLCHAIN=local go mod download \
+    && GOTOOLCHAIN=local go mod verify \
+    && GOTOOLCHAIN=local CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
+        go build -mod=readonly -trimpath -buildvcs=false \
+        -ldflags="-s -w -buildid=" -o /out/xray ./main
 
 FROM ${DISTROLESS_BASE_REPOSITORY}@${DISTROLESS_BASE_DIGEST}
-COPY --from=xray-upstream /usr/local/bin/xray /usr/local/bin/xray
-COPY --from=xray-upstream /usr/share/common-licenses/MPL-2.0 /licenses/Xray-core-MPL-2.0.txt
+COPY --from=builder /out/xray /usr/local/bin/xray
+COPY --from=builder /src/xray/LICENSE /licenses/Xray-core-MPL-2.0.txt
 COPY --from=builder /out/xray-supervisor /usr/local/bin/xray-supervisor
 USER 10002:11001
 ENTRYPOINT ["/usr/local/bin/xray-supervisor"]

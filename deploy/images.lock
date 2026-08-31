@@ -12,9 +12,9 @@ digest = "sha256:5883c320d81f76c764e114c9ab14054f037bb040907816fc9028d80d9602a7c
 
 [images.go-builder]
 repository = "docker.io/library/golang"
-version = "1.26.0-bookworm"
+version = "1.26.7-bookworm"
 platform = "linux/amd64"
-digest = "sha256:4f7e5f23bfacf4c2934ba70c132532742b6a53f01a4209e2c2eb7bd06c16f0bc"
+digest = "sha256:659cc38c1a394eeb4dd7e31fff6df128bd33444dcc7afd70e3bed5225749dbc0"
 
 [images.hysteria]
 repository = "docker.io/tobyxdd/hysteria"

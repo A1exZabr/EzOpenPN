@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import json
 import re
+import subprocess
 import tomllib
 from pathlib import Path
 
@@ -49,3 +51,38 @@ def test_workflows_pin_actions_to_full_commit_sha() -> None:
         references = action.findall(path.read_text(encoding="utf-8"))
         assert references, path
         assert all(re.fullmatch(r"[0-9a-f]{40}", reference) for reference in references)
+
+
+def test_sarif_gate_rejects_findings_without_printing_source(tmp_path: Path) -> None:
+    report = {
+        "version": "2.1.0",
+        "runs": [
+            {
+                "results": [
+                    {
+                        "ruleId": "fixture/rule",
+                        "level": "warning",
+                        "message": {"text": "fixture source detail must stay private"},
+                    }
+                ]
+            }
+        ],
+    }
+    (tmp_path / "fixture.sarif").write_text(json.dumps(report), encoding="utf-8")
+    result = subprocess.run(
+        ["python3", str(ROOT / "tools/check_sarif.py"), str(tmp_path)],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == 1
+    assert "fixture/rule" in result.stderr
+    assert "fixture source detail" not in result.stderr
+
+
+def test_sarif_gate_accepts_empty_result_set(tmp_path: Path) -> None:
+    report = {"version": "2.1.0", "runs": [{"results": []}]}
+    (tmp_path / "fixture.sarif").write_text(json.dumps(report), encoding="utf-8")
+    subprocess.run(
+        ["python3", str(ROOT / "tools/check_sarif.py"), str(tmp_path)], check=True
+    )

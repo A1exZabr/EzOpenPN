@@ -1,0 +1,18 @@
+[Unit]
+Description=EzOpenPN managed services
+Wants=network-online.target
+After=network-online.target docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+WorkingDirectory=/etc/ezopenpn/current
+ExecStart=/usr/bin/docker compose --env-file /etc/ezopenpn/stack.env -f /etc/ezopenpn/compose.yaml --project-name ezopenpn up -d
+ExecReload=/usr/bin/docker compose --env-file /etc/ezopenpn/stack.env -f /etc/ezopenpn/compose.yaml --project-name ezopenpn up -d
+ExecStop=/usr/bin/docker compose --env-file /etc/ezopenpn/stack.env -f /etc/ezopenpn/compose.yaml --project-name ezopenpn down
+TimeoutStartSec=300
+TimeoutStopSec=90
+
+[Install]
+WantedBy=multi-user.target

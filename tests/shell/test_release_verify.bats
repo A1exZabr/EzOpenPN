@@ -75,6 +75,19 @@ PY
   chmod 0755 "${EZOPENPN_COSIGN_BIN}"
 }
 
+prepare_rich_manifest_fixture() {
+  prepare_signed_fixture \
+    "https://github.com/A1exZabr/EzOpenPN/.github/workflows/release.yml@refs/tags/v0.1.0"
+  local bundle_root="${BATS_TEST_TMPDIR}/bundle"
+  printf '%s\n' \
+    '{"version":"v0.1.0","source_commit":"0123456789012345678901234567890123456789","images":{}}' \
+    >"${bundle_root}/manifest.json"
+  tar -czf "${FIXTURE_SERVER}/ezopenpn-bundle.tar.gz" -C "$bundle_root" .
+  printf '%s  %s\n' \
+    "$(file_sha256 "${FIXTURE_SERVER}/ezopenpn-bundle.tar.gz")" \
+    ezopenpn-bundle.tar.gz >"${FIXTURE_SERVER}/SHA256SUMS"
+}
+
 @test "valid release bundle executes exactly once" {
   run bootstrap_release
 
@@ -128,4 +141,13 @@ PY
 
   [ "$status" -eq 31 ]
   [ ! -e "${EZOPENPN_TEST_EXECUTED_PATH}" ]
+}
+
+@test "signed release accepts metadata beside the exact version" {
+  prepare_rich_manifest_fixture
+
+  run bootstrap_release
+
+  [ "$status" -eq 0 ]
+  [ "$(wc -l <"${EZOPENPN_TEST_EXECUTED_PATH}")" -eq 1 ]
 }

@@ -86,3 +86,14 @@ assert_preflight_ok() {
   [ "$status" -eq 0 ]
   [[ "$output" == *'"mode":"maintenance"'* ]]
 }
+
+@test "installer may resume its own validated checkpoint" {
+  mkdir -p "$EZOPENPN_STATE_ROOT/operations"
+  printf '%s\n' '{"operation":"install","phase":"gateway_started"}' \
+    >"$EZOPENPN_STATE_ROOT/operations/current.json"
+
+  EZOPENPN_ALLOW_INTERRUPTED_INSTALL=1 run run_preflight
+
+  [ "$status" -eq 0 ]
+  [[ "$output" == *'"mode":"maintenance"'* ]]
+}

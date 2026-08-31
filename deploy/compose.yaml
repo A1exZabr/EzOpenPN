@@ -68,9 +68,6 @@ services:
         read_only: true
         bind:
           create_host_path: false
-    depends_on:
-      xray:
-        condition: service_healthy
     networks: [backend]
 
   xray:
@@ -194,9 +191,6 @@ services:
         target: /data/caddy
         bind:
           create_host_path: false
-    depends_on:
-      control:
-        condition: service_healthy
     networks: [backend, edge]
 
   cert-sync:

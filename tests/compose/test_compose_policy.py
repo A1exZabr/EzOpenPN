@@ -109,6 +109,14 @@ def test_hysteria_waits_for_control_and_certificate_health(
     assert dependencies["cert-sync"]["condition"] == "service_healthy"
 
 
+def test_gateway_and_control_can_start_before_transports(
+    compose: dict[str, object],
+) -> None:
+    services = _services(compose)
+    assert "depends_on" not in services["gateway"]
+    assert "depends_on" not in services["control"]
+
+
 def test_all_container_users_are_numeric(compose: dict[str, object]) -> None:
     for service in _services(compose).values():
         user, group = str(service["user"]).split(":", 1)

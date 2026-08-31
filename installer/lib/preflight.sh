@@ -201,9 +201,13 @@ run_preflight() {
   if [[ -f "${state_root}/install.json" ]]; then
     mode="maintenance"
   elif [[ -f "${state_root}/operations/current.json" ]]; then
-    _preflight_fail 29 "$mode" "" "E_PREFLIGHT_INTERRUPTED" \
-      "обнаружена незавершённая операция"
-    return
+    if [[ "${EZOPENPN_ALLOW_INTERRUPTED_INSTALL:-}" == "1" ]]; then
+      mode="maintenance"
+    else
+      _preflight_fail 29 "$mode" "" "E_PREFLIGHT_INTERRUPTED" \
+        "обнаружена незавершённая операция"
+      return
+    fi
   fi
 
   local architecture="${TEST_UNAME_M:-$(uname -m)}"

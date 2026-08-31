@@ -143,7 +143,7 @@ with tarfile.open(archive, "r:gz") as bundle:
     if stream is None:
         raise SystemExit(1)
     manifest = json.load(stream)
-if manifest != {"version": version}:
+if not isinstance(manifest, dict) or manifest.get("version") != version:
     raise SystemExit(1)
 PY
 }

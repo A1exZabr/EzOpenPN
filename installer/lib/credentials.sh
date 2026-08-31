@@ -71,8 +71,12 @@ initialize_admin_from_tty() {
   local status
   if "$@" init-admin --login "$login" --password-stdin <<<"$admin_value"; then
     status=0
+    # Used by the installation orchestrator after this helper returns.
+    # shellcheck disable=SC2034
+    INITIAL_ADMIN_LOGIN="$login"
   else
     status=$?
+    unset INITIAL_ADMIN_LOGIN
   fi
   admin_value=''
   unset admin_value login ADMIN_LOGIN ADMIN_PASSWORD ADMIN_PASSWORD_CONFIRM

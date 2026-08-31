@@ -24,6 +24,7 @@ ENV PATH="/app/.venv/bin:${PATH}" \
     EZOPENPN_CONTROL_ROOT=/app/control
 
 RUN apt-get update \
+    && apt-get upgrade --yes \
     && apt-get install --yes --no-install-recommends ca-certificates tini \
     && rm -rf /var/lib/apt/lists/* \
     && groupadd --gid 10001 ezopenpn \

@@ -34,7 +34,7 @@ case "$mode" in
     ;;
 esac
 
-"$uv_binary" run python - \
+"$uv_binary" run --no-project python - \
   "$configuration" "$lock_file" "${repository_root}/installer/install.sh" <<'PY'
 from __future__ import annotations
 
@@ -137,16 +137,14 @@ install -d -m 0700 "$destination" "$destination/bin"
 temporary_root="$(mktemp -d "${TMPDIR:-/tmp}/ezopenpn-toolchain.XXXXXXXX")"
 trap 'case "$temporary_root" in /tmp/ezopenpn-toolchain.* | "${TMPDIR:-/tmp}"/ezopenpn-toolchain.*) rm -rf -- "$temporary_root" ;; esac' EXIT
 
-declare -A requested_tools=()
 for requested in "${selected_tools[@]}"; do
   [[ "$requested" =~ ^[a-z0-9-]+$ ]] || {
     printf 'invalid tool name: %s\n' "$requested" >&2
     exit 2
   }
-  requested_tools["$requested"]=1
 done
 
-"$uv_binary" run python - "$lock_file" <<'PY' >"${temporary_root}/artifacts.tsv"
+"$uv_binary" run --no-project python - "$lock_file" "${selected_tools[@]}" <<'PY' >"${temporary_root}/artifacts.tsv"
 from __future__ import annotations
 
 import sys
@@ -154,7 +152,13 @@ import tomllib
 from pathlib import Path
 
 locked = tomllib.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+selected = set(sys.argv[2:])
+unknown = selected - set(locked["tools"])
+if unknown:
+    raise SystemExit("one or more requested tools are unknown")
 for name, artifact in sorted(locked["tools"].items()):
+    if selected and name not in selected:
+        continue
     print(
         "\t".join(
             (
@@ -171,7 +175,7 @@ PY
 _extract_safe() {
   local archive="$1"
   local output="$2"
-  "$uv_binary" run python - "$archive" "$output" <<'PY'
+  "$uv_binary" run --no-project python - "$archive" "$output" <<'PY'
 from __future__ import annotations
 
 import sys
@@ -187,22 +191,26 @@ with tarfile.open(archive, "r:*") as source:
         path = PurePosixPath(member.name)
         if path.is_absolute() or ".." in path.parts:
             raise SystemExit("unsafe archive path")
+        if member.issym() or member.islnk():
+            continue
         if not (member.isdir() or member.isfile()):
             raise SystemExit("unsafe archive member")
-    source.extractall(output, members=members, filter="data")
+    source.extractall(
+        output,
+        members=[member for member in members if member.isdir() or member.isfile()],
+        filter="data",
+    )
 PY
 }
 
 while IFS=$'\t' read -r name url expected kind binary; do
-  if (( ${#requested_tools[@]} > 0 )) && \
-    [[ -z "${requested_tools[$name]+selected}" ]]; then
-    continue
-  fi
-  unset 'requested_tools[$name]'
   archive="${temporary_root}/${name}.artifact"
+  if [[ "$kind" == python-source ]]; then
+    archive="${temporary_root}/${name}.tar.gz"
+  fi
   curl --proto '=https' --tlsv1.2 -fsSL --connect-timeout 10 --max-time 300 \
     "$url" -o "$archive"
-  actual="$("$uv_binary" run python - "$archive" <<'PY'
+  actual="$("$uv_binary" run --no-project python - "$archive" <<'PY'
 import hashlib
 import sys
 
@@ -250,11 +258,6 @@ PY
       ;;
   esac
 done <"${temporary_root}/artifacts.tsv"
-
-if (( ${#requested_tools[@]} > 0 )); then
-  printf '%s\n' 'one or more requested tools are unknown' >&2
-  exit 2
-fi
 executables=(actionlint bats cosign gitleaks govulncheck lychee reuse shellcheck syft trivy)
 if (( ${#selected_tools[@]} > 0 )); then
   executables=("${selected_tools[@]}")

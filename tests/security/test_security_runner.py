@@ -36,6 +36,13 @@ def test_toolchain_config_and_lock_cover_required_tools() -> None:
         assert lock["tools"][name]["url"].startswith("https://")
 
 
+def test_locked_installer_filters_artifacts_before_download() -> None:
+    script = (ROOT / "tools/lock_toolchain.sh").read_text(encoding="utf-8")
+    assert 'selected = set(sys.argv[2:])' in script
+    assert "if selected and name not in selected:" in script
+    assert "requested_tools" not in script
+
+
 def test_workflows_pin_actions_to_full_commit_sha() -> None:
     action = re.compile(r"^\s*-?\s*uses:\s*[^\s@]+@([^\s#]+)", re.MULTILINE)
     for path in sorted((ROOT / ".github/workflows").glob("*.yml")):

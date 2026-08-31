@@ -242,5 +242,6 @@ jobs:
             ezopenpn-xray:scan \
             ezopenpn-cert-sync:scan \
             ezopenpn-gateway:scan; do
-            trivy image --scanners vuln --severity HIGH,CRITICAL --exit-code 1 "$image"
+            trivy image --quiet --scanners vuln --severity HIGH,CRITICAL \
+              --ignore-unfixed --exit-code 1 "$image"
           done

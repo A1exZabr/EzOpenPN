@@ -8,18 +8,20 @@
     <link rel="stylesheet" href="{{ url_for('static', path='/app.css') }}">
     <script src="{{ url_for('static', path='/app.js') }}" defer></script>
   </head>
-  <body>
+  <body class="{% block body_class %}{% endblock %}">
     <div class="page-shell">
       <header class="topbar">
         <a class="brand" href="/" aria-label="EzOpenPN, главная">
-          <span class="brand-mark" aria-hidden="true"><i></i><i></i></span>
-          <span>EzOpenPN</span>
+          <img class="brand-logo" src="{{ url_for('static', path='/ezopenpn-logo.webp') }}" alt="EzOpenPN" width="850" height="280">
         </a>
-        <span class="local-label">Личный сервер</span>
+        <span class="local-label"><i aria-hidden="true"></i>Личный сервер</span>
       </header>
       <main>{% block content %}{% endblock %}</main>
       <footer class="footer">
-        <span>Восстановление доступа</span>
+        <div>
+          <strong>Не получается войти?</strong>
+          <span>Сбросьте пароль в консоли сервера:</span>
+        </div>
         <code>sudo ezopenpn admin reset-password</code>
       </footer>
     </div>

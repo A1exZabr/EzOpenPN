@@ -27,6 +27,33 @@ test("login page records safe deterministic evidence", async ({ page }) => {
   });
 });
 
+test("approved identity leads a beginner-focused panel", async ({ page }) => {
+  await page.goto("/login");
+  const loginLogo = page.getByRole("img", { name: "EzOpenPN" });
+  await expect(loginLogo).toBeVisible();
+  await expect(loginLogo).toHaveAttribute("src", /ezopenpn-logo\.webp$/);
+  await expect(
+    page.getByRole("heading", { name: "Управляйте подключениями без лишних настроек" })
+  ).toBeVisible();
+
+  await login(page);
+  await expect(page.getByRole("heading", { name: "Подключения" })).toBeVisible();
+  await expect(
+    page.getByRole("region", { name: "Добавить устройство" })
+  ).toBeVisible();
+
+  await createProfile(page, "Телефон");
+  await expect(
+    page.getByRole("heading", { name: "Подключить устройство" })
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Скопировать общую ссылку" })
+  ).toBeVisible();
+  await expect(
+    page.getByText("Если общая ссылка не подошла")
+  ).toBeVisible();
+});
+
 test("invalid administrator credentials are rejected", async ({ page }) => {
   await page.goto("/login");
   await page.getByLabel("Логин").fill(adminLogin);
@@ -43,12 +70,12 @@ test("administrator completes the profile lifecycle", async ({ page, context }) 
 
   await expect(page.getByText("Активен", { exact: true })).toBeVisible();
   await expect(page.locator(".qr-code svg")).toHaveCount(3);
-  await expect(page.locator(".guide li")).toHaveCount(4);
+  await expect(page.locator(".guide li")).toHaveCount(3);
   await expect(
     page.getByText("sudo ezopenpn admin reset-password").last()
   ).toBeVisible();
 
-  await page.getByRole("button", { name: "Скопировать" }).first().click();
+  await page.getByRole("button", { name: /^Скопировать/ }).first().click();
   await expect(page.getByRole("button", { name: "Скопировано" })).toBeVisible();
   const copied = await page.evaluate(async () => navigator.clipboard.readText());
   expect(copied.length > 20).toBe(true);
@@ -89,7 +116,7 @@ test("expired administrator session returns to login", async ({ page }) => {
   expect(response.status()).toBe(204);
   await page.goto("/");
   await expect(page).toHaveURL(/\/login$/);
-  await expect(page.getByRole("heading", { name: "Войти на сервер" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Войти" })).toBeVisible();
 });
 
 test("copy control uses the safe fallback without Clipboard API", async ({ page }) => {
@@ -107,7 +134,7 @@ test("copy control uses the safe fallback without Clipboard API", async ({ page 
   });
   await login(page);
   await createProfile(page, "Ноутбук");
-  await page.getByRole("button", { name: "Скопировать" }).first().click();
+  await page.getByRole("button", { name: /^Скопировать/ }).first().click();
   await expect(page.getByRole("button", { name: "Скопировано" })).toBeVisible();
   const copied = await page.evaluate(
     () => (window as Window & { fixtureCopied?: string }).fixtureCopied ?? ""

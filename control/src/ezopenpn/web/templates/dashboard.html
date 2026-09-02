@@ -3,79 +3,79 @@
 {% block content %}
   <section class="dashboard-head">
     <div>
-      <p class="eyebrow">Устройства</p>
-      <h1>Ваши профили</h1>
-      <p class="lead">Один профиль на устройство. Его можно отключить отдельно от остальных.</p>
+      <span class="state-chip"><i aria-hidden="true"></i>Панель работает</span>
+      <h1>Подключения</h1>
+      <p class="lead">Для каждого телефона, компьютера или планшета: свой профиль.</p>
     </div>
     <form method="post" action="/logout" class="logout-form">
       <input type="hidden" name="csrf" value="{{ csrf }}">
-      <button class="secondary compact" type="submit">Выйти</button>
+      <button class="text-button" type="submit">Выйти</button>
     </form>
   </section>
 
-  <section class="create-panel" aria-labelledby="create-title">
+  <section class="create-panel" aria-label="Добавить устройство">
     <div>
-      <p class="eyebrow">Новое устройство</p>
-      <h2 id="create-title">Создать профиль</h2>
-      <p class="muted">Например: Телефон, Ноутбук или Планшет.</p>
+      <span class="add-icon" aria-hidden="true">+</span>
+      <div>
+        <h2>Добавить устройство</h2>
+        <p>Введите понятное название. Остальное сервер подготовит сам.</p>
+      </div>
     </div>
     <form method="post" action="/profiles" class="create-form">
       <input type="hidden" name="csrf" value="{{ csrf }}">
       <label for="profile-name">Название устройства</label>
       <div>
-        <input id="profile-name" name="name" type="text" maxlength="64" required placeholder="Телефон">
-        <button type="submit">Создать профиль</button>
+        <input id="profile-name" name="name" type="text" maxlength="64" required placeholder="Например, мой телефон">
+        <button class="primary-button" type="submit">Создать профиль</button>
       </div>
     </form>
   </section>
 
-  <section class="guide" aria-labelledby="quick-start-title">
-    <p class="eyebrow">Первое устройство</p>
-    <h2 id="quick-start-title">Добавить за четыре шага</h2>
-    <ol>
-      <li data-step="1"><span>1</span><div><strong>Создайте профиль</strong><p>Назовите его так, чтобы сразу узнать устройство.</p></div></li>
-      <li data-step="2"><span>2</span><div><strong>Установите совместимое приложение</strong><p>Используйте приложение из проверенного списка выпуска.</p></div></li>
-      <li data-step="3"><span>3</span><div><strong>Отсканируйте QR-код или вставьте ссылку</strong><p>Общая ссылка добавит оба транспорта.</p></div></li>
-      <li data-step="4"><span>4</span><div><strong>Переключите транспорт, если первый вариант нестабилен</strong><p>В разных сетях лучше работают разные маршруты.</p></div></li>
-    </ol>
-  </section>
-
-  <aside class="recovery-reminder" aria-label="Восстановление доступа">
-    <strong>Не получается войти?</strong>
-    <span>Подключитесь к серверу по SSH и выполните:</span>
-    <code>sudo ezopenpn admin reset-password</code>
-  </aside>
-
-  <section class="profiles-section" aria-labelledby="profiles-title">
-    <div class="section-label">
-      <h2 id="profiles-title">Готовые и ожидающие</h2>
-      <span>{{ profiles|length }}</span>
-    </div>
-    {% if profiles %}
-      <div class="profile-grid">
-        {% for profile in profiles %}
-          <a class="profile-card" href="/profiles/{{ profile.profile_id }}">
-            <span class="device-glyph" aria-hidden="true"></span>
-            <strong>{{ profile.name }}</strong>
-            {% if profile.state.value == "active" %}
-              <span class="status active">Активен</span>
-            {% elif profile.state.value == "disabled" %}
-              <span class="status disabled">Отключён</span>
-            {% else %}
-              <span class="status pending">Нужна проверка</span>
-            {% endif %}
-            <small>Открыть карточку</small>
-          </a>
-        {% endfor %}
-      </div>
-    {% else %}
-      <div class="empty-state">
-        <span class="empty-lines" aria-hidden="true"><i></i><i></i></span>
+  <div class="dashboard-grid">
+    <section class="profiles-section" aria-labelledby="profiles-title">
+      <div class="section-label">
         <div>
-          <h3>Добавьте первое устройство</h3>
-          <p>Введите понятное название выше. Панель подготовит всё остальное сама.</p>
+          <p class="kicker">Ваши устройства</p>
+          <h2 id="profiles-title">Профили</h2>
         </div>
+        <span>{{ profiles|length }}</span>
       </div>
-    {% endif %}
-  </section>
+      {% if profiles %}
+        <div class="profile-list">
+          {% for profile in profiles %}
+            <a class="profile-card" href="/profiles/{{ profile.profile_id }}">
+              <span class="device-glyph" aria-hidden="true"><i></i></span>
+              <span class="profile-name"><strong>{{ profile.name }}</strong><small>Открыть настройки</small></span>
+              {% if profile.state.value == "active" %}
+                <span class="status active">Активен</span>
+              {% elif profile.state.value == "disabled" %}
+                <span class="status disabled">Отключён</span>
+              {% else %}
+                <span class="status pending">Нужна проверка</span>
+              {% endif %}
+              <span class="card-arrow" aria-hidden="true">›</span>
+            </a>
+          {% endfor %}
+        </div>
+      {% else %}
+        <div class="empty-state">
+          <span class="empty-device" aria-hidden="true"><i></i></span>
+          <div>
+            <h3>Добавьте первое устройство</h3>
+            <p>Профиль появится здесь сразу после создания.</p>
+          </div>
+        </div>
+      {% endif %}
+    </section>
+
+    <aside class="quick-help" aria-labelledby="quick-start-title">
+      <p class="kicker">Как это работает</p>
+      <h2 id="quick-start-title">Три простых шага</h2>
+      <ol>
+        <li><span>1</span><p><strong>Создайте профиль</strong> для нужного устройства.</p></li>
+        <li><span>2</span><p><strong>Откройте карточку</strong> и отсканируйте QR-код.</p></li>
+        <li><span>3</span><p><strong>Подключитесь.</strong> Оба варианта уже внутри.</p></li>
+      </ol>
+    </aside>
+  </div>
 {% endblock %}

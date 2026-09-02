@@ -19,7 +19,7 @@ export async function login(page: Page): Promise<void> {
   await page.getByRole("button", { name: "Открыть панель" }).click();
   await expect(page).toHaveURL(/\/$/);
   await expect(
-    page.getByRole("heading", { name: "Ваши профили" })
+    page.getByRole("heading", { name: "Подключения" })
   ).toBeVisible();
 }
 

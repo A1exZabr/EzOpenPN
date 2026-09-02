@@ -48,7 +48,7 @@ test("administrator can sign in using only the keyboard", async ({ page }) => {
   await page.keyboard.type(adminPassphrase);
   await page.keyboard.press("Tab");
   await page.keyboard.press("Enter");
-  await expect(page.getByRole("heading", { name: "Ваши профили" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Подключения" })).toBeVisible();
 });
 
 test.describe("mobile viewport", () => {

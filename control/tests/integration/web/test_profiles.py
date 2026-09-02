@@ -111,12 +111,12 @@ def test_dashboard_has_labeled_create_form_and_empty_guidance(
     assert "Добавьте первое устройство" in response.text
 
 
-def test_profile_page_explains_four_import_steps(authenticated_client: TestClient) -> None:
+def test_profile_page_explains_three_import_steps(authenticated_client: TestClient) -> None:
     profile_id = _create(authenticated_client)
 
     response = authenticated_client.get(f"/profiles/{profile_id}")
 
-    for step in range(1, 5):
+    for step in range(1, 4):
         assert f'data-step="{step}"' in response.text
 
 

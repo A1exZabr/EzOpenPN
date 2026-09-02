@@ -1,21 +1,22 @@
 {% extends "base.html" %}
 {% block title %}Вход | EzOpenPN{% endblock %}
+{% block body_class %}login-page{% endblock %}
 {% block content %}
   <section class="login-layout">
     <div class="welcome-panel">
-      <p class="eyebrow">Управление подключениями</p>
-      <h1>Ваш сервер.<br>Ваши правила.</h1>
-      <p class="lead">Добавляйте устройства, выдавайте ссылки и отключайте доступ в одном месте.</p>
-      <div class="channel-rail" aria-label="Два независимых канала">
-        <span><i></i>Канал A</span>
-        <span><i></i>Канал B</span>
+      <span class="state-chip"><i aria-hidden="true"></i>Всё под вашим контролем</span>
+      <h1>Управляйте подключениями без лишних настроек</h1>
+      <p class="lead">Создавайте отдельный профиль для каждого устройства и отключайте его в любой момент.</p>
+      <div class="route-map" aria-label="Два независимых способа подключения">
+        <span><i></i><b>Основной</b></span>
+        <span><i></i><b>Резервный</b></span>
       </div>
     </div>
-    <div class="login-card">
+    <div class="login-card" aria-labelledby="login-title">
       <div>
-        <p class="eyebrow">Панель администратора</p>
-        <h2>Войти на сервер</h2>
-        <p class="muted">Используйте данные, которые указали при установке.</p>
+        <p class="kicker">Панель администратора</p>
+        <h2 id="login-title">Войти</h2>
+        <p class="muted">Введите логин и пароль, созданные при установке.</p>
       </div>
       {% if error %}<p class="alert" role="alert">{{ error }}</p>{% endif %}
       <form method="post" action="/login" class="form-stack">
@@ -24,11 +25,11 @@
         <input id="login" name="login" type="text" maxlength="64" autocomplete="username" required autofocus>
         <label for="password">Пароль</label>
         <input id="password" name="password" type="password" maxlength="1024" autocomplete="current-password" required>
-        <button type="submit">Открыть панель</button>
+        <button class="primary-button" type="submit">Открыть панель</button>
       </form>
-      <details>
+      <details class="login-help">
         <summary>Не получается войти?</summary>
-        <p>Откройте консоль сервера и выполните:</p>
+        <p>Откройте консоль сервера и выполните команду:</p>
         <code>sudo ezopenpn admin reset-password</code>
       </details>
     </div>

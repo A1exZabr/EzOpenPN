@@ -57,7 +57,12 @@ jobs:
       - name: Authenticate to the package registry
         env:
           REGISTRY_TOKEN: ${{ github.token }}
-        run: echo "$REGISTRY_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+          FORGEJO_TOKEN: ${{ secrets.FORGEJO_PACKAGE_TOKEN }}
+        run: |
+          echo "$REGISTRY_TOKEN" | docker login ghcr.io \
+            --username "$GITHUB_ACTOR" --password-stdin
+          echo "$FORGEJO_TOKEN" | docker login git.alexzabrodin.pro \
+            --username alex --password-stdin
       - name: Build once and generate SPDX SBOM
         id: image
         env:
@@ -67,6 +72,7 @@ jobs:
           WORKFLOW_IDENTITY: https://github.com/${{ github.workflow_ref }}
         run: |
           reference="ghcr.io/a1exzabr/ezopenpn-${IMAGE_NAME}"
+          forgejo_reference="git.alexzabrodin.pro/alex/ezopenpn-${IMAGE_NAME}"
           artifact="$RUNNER_TEMP/image-artifact"
           install -d -m 0700 \
             "$artifact/sbom" \
@@ -76,6 +82,7 @@ jobs:
             --platform linux/amd64 \
             --file "$DOCKERFILE" \
             --tag "${reference}:sha-${SOURCE_COMMIT}" \
+            --tag "${forgejo_reference}:sha-${SOURCE_COMMIT}" \
             --provenance=false \
             --sbom=false \
             --push \

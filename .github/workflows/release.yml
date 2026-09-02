@@ -76,14 +76,14 @@ jobs:
           bash tools/lock_toolchain.sh --install "$RUNNER_TEMP/ezopenpn-tools" cosign syft
           echo "$RUNNER_TEMP/ezopenpn-tools/bin" >> "$GITHUB_PATH"
       - name: Download verified image manifest
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
         with:
           name: images-release-${{ github.sha }}
           path: image-evidence
           run-id: ${{ inputs.images_run_id }}
           github-token: ${{ github.token }}
       - name: Download external evidence
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
         with:
           name: release-evidence-${{ github.sha }}
           path: release-evidence
@@ -148,12 +148,12 @@ jobs:
             dist/SHA256SUMS
       - name: Attach GitHub provenance
         id: provenance
-        uses: actions/attest-build-provenance@977bb373ede98d70efdf65b84cb5f73e068dcc2a
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8
         with:
           subject-path: dist/ezopenpn-bundle.tar.gz
       - name: Attach GitHub SBOM attestation
         id: sbom-attestation
-        uses: actions/attest-sbom@4651f806c01d8637787e274ac3bdf724ef169f34
+        uses: actions/attest-sbom@c604332985a26aa8cf1bdc465b92731239ec6b9e
         with:
           subject-path: dist/ezopenpn-bundle.tar.gz
           sbom-path: dist/ezopenpn-bundle.spdx.json
@@ -167,7 +167,7 @@ jobs:
             dist/ezopenpn-bundle.sbom-attestation.json
           bash tools/verify_release.sh --signed dist
       - name: Upload signed release assets
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: signed-release-${{ inputs.tag }}
           path: dist
@@ -183,7 +183,7 @@ jobs:
       contents: write
     steps:
       - name: Download signed assets
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
         with:
           name: signed-release-${{ inputs.tag }}
           path: assets
@@ -224,7 +224,7 @@ jobs:
           bash tools/lock_toolchain.sh --install "$RUNNER_TEMP/ezopenpn-tools" cosign
           echo "$RUNNER_TEMP/ezopenpn-tools/bin" >> "$GITHUB_PATH"
       - name: Download expected signed assets
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
         with:
           name: signed-release-${{ inputs.tag }}
           path: expected

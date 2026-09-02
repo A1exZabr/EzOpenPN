@@ -20,7 +20,7 @@ EzOpenPN разворачивает личный сервер защищённы
 Подключитесь к серверу по SSH и выполните:
 
 ```bash
-curl -fsSL https://github.com/A1exZabr/EzOpenPN/releases/latest/download/install.sh | sudo bash
+curl -fsSL https://git.alexzabrodin.pro/ezopenpn/releases/latest/download/install.sh | sudo bash
 ```
 
 Установщик сначала проверит систему и только затем попросит придумать логин и пароль администратора. Пароль вводится скрыто и должен содержать не менее 12 символов.
@@ -81,4 +81,4 @@ sudo ezopenpn backup
 
 Стабильное обновление запускается командой `sudo ezopenpn update`. Перед переключением версии создаётся проверенная резервная копия, а неудачный запуск автоматически возвращает прежнее состояние.
 
-О проблемах без секретных данных можно сообщать через [GitHub Issues](https://github.com/A1exZabr/EzOpenPN/issues). Уязвимости нельзя публиковать в открытом issue: используйте закрытый канал из файла `SECURITY.md` после публикации репозитория.
+О проблемах без секретных данных можно сообщать через [Forgejo Issues](https://git.alexzabrodin.pro/alex/EzOpenPN/issues). Уязвимости нельзя публиковать в открытом issue: используйте закрытый канал из файла `SECURITY.md`.

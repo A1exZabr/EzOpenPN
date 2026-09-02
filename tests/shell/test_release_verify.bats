@@ -138,6 +138,16 @@ prepare_rich_manifest_fixture() {
   [ ! -e "${EZOPENPN_TEST_EXECUTED_PATH}" ]
 }
 
+@test "candidate workflow identity is accepted for a testable signed bundle" {
+  prepare_signed_fixture \
+    "https://github.com/A1exZabr/EzOpenPN/.github/workflows/candidate-release.yml@refs/tags/v0.1.0"
+
+  run bootstrap_release
+
+  [ "$status" -eq 0 ]
+  [ "$(wc -l <"${EZOPENPN_TEST_EXECUTED_PATH}")" -eq 1 ]
+}
+
 @test "manifest version must equal the immutable release tag" {
   local changed="${BATS_TEST_TMPDIR}/changed"
   mkdir -p "${changed}/installer"
@@ -171,4 +181,30 @@ prepare_rich_manifest_fixture() {
 
   [ "$status" -eq 0 ]
   [ "$(wc -l <"${EZOPENPN_TEST_EXECUTED_PATH}")" -eq 1 ]
+}
+
+@test "production release discovery uses the public Forgejo distribution endpoint" {
+  unset EZOPENPN_RELEASE_BASE_URL EZOPENPN_EXPECTED_VERSION
+  local fake_bin="${BATS_TEST_TMPDIR}/fake-bin"
+  local curl_arguments="${BATS_TEST_TMPDIR}/curl-arguments"
+  mkdir -p "$fake_bin"
+  printf '%s\n' \
+    '#!/usr/bin/env bash' \
+    'printf "%s\n" "$@" >"$EZOPENPN_TEST_CURL_ARGUMENTS"' \
+    'printf "%s\n" v0.1.0' \
+    >"${fake_bin}/curl"
+  chmod 0755 "${fake_bin}/curl"
+
+  run env \
+    PATH="${fake_bin}:${PATH}" \
+    EZOPENPN_TEST_CURL_ARGUMENTS="$curl_arguments" \
+    bash -c \
+      'source "$1/installer/lib/release.sh"; version="$(_resolve_release_version)"; printf "%s|%s\n" "$version" "$(_release_base_url "$version")"' \
+      _ "$REPOSITORY_ROOT"
+
+  [ "$status" -eq 0 ]
+  [ "$output" = "v0.1.0|https://git.alexzabrodin.pro/ezopenpn/releases/download/v0.1.0" ]
+  grep -Fxq \
+    'https://git.alexzabrodin.pro/ezopenpn/releases/latest/version' \
+    "$curl_arguments"
 }

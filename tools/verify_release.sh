@@ -168,15 +168,25 @@ PY
 )
   version="${release_metadata[0]}"
   source_commit="${release_metadata[1]}"
-  identity="https://github.com/A1exZabr/EzOpenPN/.github/workflows/release.yml@refs/tags/${version}"
-  cosign verify-blob "${release_directory}/ezopenpn-bundle.tar.gz" \
-    --bundle "${release_directory}/ezopenpn-bundle.sigstore.json" \
-    --certificate-identity "$identity" \
-    --certificate-oidc-issuer https://token.actions.githubusercontent.com >/dev/null
-  cosign verify-blob "${release_directory}/SHA256SUMS" \
-    --bundle "${release_directory}/SHA256SUMS.sigstore.json" \
-    --certificate-identity "$identity" \
-    --certificate-oidc-issuer https://token.actions.githubusercontent.com >/dev/null
+  identity=""
+  for workflow in release.yml candidate-release.yml; do
+    candidate_identity="https://github.com/A1exZabr/EzOpenPN/.github/workflows/${workflow}@refs/tags/${version}"
+    if cosign verify-blob "${release_directory}/ezopenpn-bundle.tar.gz" \
+      --bundle "${release_directory}/ezopenpn-bundle.sigstore.json" \
+      --certificate-identity "$candidate_identity" \
+      --certificate-oidc-issuer https://token.actions.githubusercontent.com >/dev/null 2>&1 \
+      && cosign verify-blob "${release_directory}/SHA256SUMS" \
+        --bundle "${release_directory}/SHA256SUMS.sigstore.json" \
+        --certificate-identity "$candidate_identity" \
+        --certificate-oidc-issuer https://token.actions.githubusercontent.com >/dev/null 2>&1; then
+      identity="$candidate_identity"
+      break
+    fi
+  done
+  [[ -n "$identity" ]] || {
+    printf '%s\n' 'release signature identity is invalid' >&2
+    exit 1
+  }
   python3 - "${release_directory}/ezopenpn-bundle.spdx.json" <<'PY'
 import json
 import sys

@@ -55,7 +55,7 @@ def test_publication_is_never_triggered_by_push() -> None:
     for path in workflow_paths:
         workflow = yaml.safe_load(path.read_text(encoding="utf-8"))
         assert isinstance(workflow, dict)
-        if path.name in {"images.yml", "release.yml"}:
+        if path.name in {"candidate-release.yml", "images.yml", "release.yml"}:
             triggers = workflow.get("on", workflow.get(True, {}))
             assert isinstance(triggers, dict)
             assert "push" not in triggers

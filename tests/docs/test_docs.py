@@ -16,7 +16,7 @@ PUBLIC_DOCUMENTS = (
     ROOT / "docs/releases/release-checklist.md",
 )
 INSTALL_COMMAND = (
-    "curl -fsSL https://github.com/A1exZabr/EzOpenPN/releases/latest/download/"
+    "curl -fsSL https://git.alexzabrodin.pro/ezopenpn/releases/latest/download/"
     "install.sh | sudo bash"
 )
 RESET_COMMAND = "sudo ezopenpn admin reset-password"

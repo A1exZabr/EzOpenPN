@@ -41,7 +41,7 @@ ssh root@SERVER_IP
 ## 4. Запустите установку
 
 ```bash
-curl -fsSL https://github.com/A1exZabr/EzOpenPN/releases/latest/download/install.sh | sudo bash
+curl -fsSL https://git.alexzabrodin.pro/ezopenpn/releases/latest/download/install.sh | sudo bash
 ```
 
 Сценарий проверяет систему, публичный адрес, свободные порты, память, диск, время, исходящий HTTPS, Docker и firewall до основных изменений. Если проверка нашла конфликт, исправьте указанную причину и повторите ту же команду.

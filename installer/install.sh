@@ -36,16 +36,15 @@ _resolve_release_version() {
     return
   fi
 
-  local effective_url version
-  effective_url="$(curl --proto '=https' --tlsv1.2 -fsSL \
-    --connect-timeout 10 --max-time 30 -o /dev/null -w '%{url_effective}' \
-    https://github.com/A1exZabr/EzOpenPN/releases/latest)" || {
+  local version
+  version="$(curl --proto '=https' --tlsv1.2 -fsSL \
+    --connect-timeout 10 --max-time 30 \
+    https://git.alexzabrodin.pro/ezopenpn/releases/latest/version)" || {
       _release_error "не удалось определить текущую стабильную версию"
       return
     }
-  version="${effective_url##*/tag/}"
-  if [[ "$version" == "$effective_url" || ! "$version" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-    _release_error "GitHub вернул неверную версию"
+  if ! _valid_release_tag "$version"; then
+    _release_error "сервер выпусков вернул неверную версию"
     return
   fi
   printf '%s\n' "$version"
@@ -56,7 +55,7 @@ _release_base_url() {
   if _release_test_mode; then
     printf '%s\n' "${EZOPENPN_RELEASE_BASE_URL%/}"
   else
-    printf 'https://github.com/A1exZabr/EzOpenPN/releases/download/%s\n' "$version"
+    printf 'https://git.alexzabrodin.pro/ezopenpn/releases/download/%s\n' "$version"
   fi
 }
 
@@ -158,13 +157,18 @@ verify_release_bundle() {
     -f "$sigstore_bundle" ]] || return 1
   _verify_checksum_and_archive "$release_root" "$version" || return 1
 
-  local identity
-  identity="https://github.com/A1exZabr/EzOpenPN/.github/workflows/release.yml@refs/tags/${version}"
-  "$cosign_bin" verify-blob "$archive" \
-    --bundle "$sigstore_bundle" \
-    --certificate-identity "$identity" \
-    --certificate-oidc-issuer "$EZOPENPN_OIDC_ISSUER" \
-    >/dev/null 2>&1
+  local workflow identity
+  for workflow in release.yml candidate-release.yml; do
+    identity="https://github.com/A1exZabr/EzOpenPN/.github/workflows/${workflow}@refs/tags/${version}"
+    if "$cosign_bin" verify-blob "$archive" \
+      --bundle "$sigstore_bundle" \
+      --certificate-identity "$identity" \
+      --certificate-oidc-issuer "$EZOPENPN_OIDC_ISSUER" \
+      >/dev/null 2>&1; then
+      return 0
+    fi
+  done
+  return 1
 }
 
 _cleanup_bootstrap() {

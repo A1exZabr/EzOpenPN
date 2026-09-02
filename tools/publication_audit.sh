@@ -110,17 +110,19 @@ else
 fi
 
 remote_names="$(git remote 2>/dev/null || true)"
-if [[ "$remote_names" != origin ]]; then
+if [[ "$remote_names" != $'forgejo\ngithub' ]]; then
   add_blocker remote_set_invalid
 fi
-expected_https="https://github.com/A1exZabr/EzOpenPN.git"
-expected_ssh="git@github.com:A1exZabr/EzOpenPN.git"
-fetch_url="$(git remote get-url origin 2>/dev/null || true)"
-push_url="$(git remote get-url --push origin 2>/dev/null || true)"
-if [[ "$fetch_url" != "$expected_https" && "$fetch_url" != "$expected_ssh" ]]; then
+forgejo_expected="https://git.alexzabrodin.pro/alex/EzOpenPN.git"
+github_expected="git@github.com:A1exZabr/EzOpenPN.git"
+fetch_url="$(git remote get-url forgejo 2>/dev/null || true)"
+push_url="$(git remote get-url --push forgejo 2>/dev/null || true)"
+if [[ "$fetch_url" != "$forgejo_expected" || "$push_url" != "$forgejo_expected" ]]; then
   add_blocker remote_fetch_invalid
 fi
-if [[ "$push_url" != "$expected_https" && "$push_url" != "$expected_ssh" ]]; then
+fetch_url="$(git remote get-url github 2>/dev/null || true)"
+push_url="$(git remote get-url --push github 2>/dev/null || true)"
+if [[ "$fetch_url" != "$github_expected" || "$push_url" != "$github_expected" ]]; then
   add_blocker remote_push_invalid
 fi
 {
@@ -154,11 +156,10 @@ else
 import json
 import sys
 
-phase, path = sys.argv[1:]
+_phase, path = sys.argv[1:]
 data = json.load(open(path, encoding="utf-8"))
-expected_visibility = "private" if phase == "private" else "public"
 checks = (
-    (data.get("visibility") == expected_visibility, "repository_visibility_invalid"),
+    (data.get("visibility") == "private", "repository_visibility_invalid"),
     (data.get("fork") is False, "repository_is_fork"),
     (data.get("default_branch") == "main", "default_branch_invalid"),
     (data.get("archived") is False, "repository_archived"),

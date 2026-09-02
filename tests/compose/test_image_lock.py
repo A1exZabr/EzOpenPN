@@ -103,6 +103,13 @@ def test_runtime_images_use_grpc_with_cve_2026_84304_fixed() -> None:
         assert lock["modules"]["google.golang.org/grpc"] == "v1.83.1"
 
 
+def test_gateway_uses_crypto_with_cve_2026_56854_fixed() -> None:
+    lock = tomllib.loads(
+        (_ROOT / "runtime/caddy-source.lock").read_text(encoding="utf-8")
+    )
+    assert lock["modules"]["golang.org/x/crypto"] == "v0.55.0"
+
+
 def test_xray_source_and_security_refresh_are_immutable() -> None:
     lock = tomllib.loads(
         (_ROOT / "runtime/xray-source.lock").read_text(encoding="utf-8")

@@ -4,6 +4,7 @@ url = "https://github.com/caddyserver/caddy/releases/download/v2.11.4/caddy_2.11
 sha256 = "e44e457ba3f2b5b8447952d2de0ae0a91b09d1a013e2521527e08b6f52acc9eb"
 
 [modules]
+"golang.org/x/crypto" = "v0.55.0"
 "golang.org/x/net" = "v0.56.0"
 "golang.org/x/text" = "v0.39.0"
 "google.golang.org/grpc" = "v1.83.1"

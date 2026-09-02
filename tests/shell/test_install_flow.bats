@@ -133,6 +133,23 @@ setup() {
   [ ! -e "$TEST_ROOT/etc/ezopenpn/current/current.tmp" ]
 }
 
+@test "rollback replaces the current symlink without nesting a rollback link" {
+  local releases_root="$TEST_ROOT/etc/ezopenpn/releases"
+  local current_path="$TEST_ROOT/etc/ezopenpn/current"
+  mkdir -p "$releases_root/v0.1.0"
+  ln -s releases/v0.1.0 "$current_path"
+  INSTALL_PREVIOUS_CURRENT=releases/v0.1.0
+  systemctl() { :; }
+  rollback_firewall_rules() { :; }
+
+  _rollback_production_install
+
+  [ -L "$current_path" ]
+  [ "$(readlink "$current_path")" = releases/v0.1.0 ]
+  [ ! -e "$releases_root/v0.1.0/current.rollback" ]
+  [ ! -L "$releases_root/v0.1.0/current.rollback" ]
+}
+
 @test "bundle manifest supplies only immutable stack images" {
   local digest
   digest="$(printf 'b%.0s' {1..64})"

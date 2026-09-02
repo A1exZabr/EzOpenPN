@@ -756,7 +756,7 @@ _rollback_production_install() {
     local temporary_link="${current_path}.rollback"
     rm -f -- "$temporary_link"
     ln -s "$INSTALL_PREVIOUS_CURRENT" "$temporary_link"
-    mv -f -- "$temporary_link" "$current_path"
+    mv -Tf -- "$temporary_link" "$current_path"
   fi
 }
 

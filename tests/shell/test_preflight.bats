@@ -8,6 +8,7 @@ setup() {
   export TEST_UNAME_M=x86_64
   export TEST_SYSTEMD=1
   export TEST_MEMORY_KIB=2097152
+  export TEST_SWAP_KIB=0
   export TEST_DISK_KIB=8388608
   export TEST_TIME_SYNC=yes
   export TEST_PUBLIC_IP_A=203.0.113.10
@@ -20,6 +21,23 @@ setup() {
   export EZOPENPN_OS_RELEASE_PATH="${REPOSITORY_ROOT}/tests/shell/fixtures/os-release/ubuntu-24.04"
   source "${REPOSITORY_ROOT}/installer/lib/common.sh"
   source "${REPOSITORY_ROOT}/installer/lib/preflight.sh"
+}
+
+@test "a one gigabyte VPS with reserved RAM and swap passes resources" {
+  export TEST_MEMORY_KIB=912916
+  export TEST_SWAP_KIB=1806332
+
+  assert_preflight_ok
+}
+
+@test "less than one gibibyte of total memory fails resources" {
+  export TEST_MEMORY_KIB=786432
+  export TEST_SWAP_KIB=131071
+
+  run run_preflight
+
+  [ "$status" -eq 23 ]
+  [[ "$output" == *"E_PREFLIGHT_RESOURCES"* ]]
 }
 
 assert_preflight_ok() {

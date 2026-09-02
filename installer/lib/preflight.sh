@@ -289,13 +289,17 @@ run_preflight() {
   if [[ -z "$memory_kib" ]]; then
     memory_kib="$(awk '/^MemTotal:/ {print $2; exit}' /proc/meminfo)"
   fi
+  local swap_kib="${TEST_SWAP_KIB:-}"
+  if [[ -z "$swap_kib" ]]; then
+    swap_kib="$(awk '/^SwapTotal:/ {print $2; exit}' /proc/meminfo)"
+  fi
   local disk_kib="${TEST_DISK_KIB:-}"
   if [[ -z "$disk_kib" ]]; then
     disk_kib="$(df -Pk /var | awk 'NR == 2 {print $4}')"
   fi
-  if (( memory_kib < 1048576 || disk_kib < 4194304 )); then
+  if (( memory_kib < 786432 || memory_kib + swap_kib < 1048576 || disk_kib < 4194304 )); then
     _preflight_fail 23 "$mode" "$public_ip" "E_PREFLIGHT_RESOURCES" \
-      "нужно не менее 1 ГиБ памяти и 4 ГиБ свободного места"
+      "нужно не менее 768 МиБ RAM, 1 ГиБ RAM вместе со swap и 4 ГиБ свободного места"
     return
   fi
 

@@ -110,6 +110,22 @@ def test_gateway_uses_crypto_with_cve_2026_56854_fixed() -> None:
     assert lock["modules"]["golang.org/x/crypto"] == "v0.55.0"
 
 
+def test_gateway_security_refresh_uses_compatible_module_set() -> None:
+    gateway = tomllib.loads(
+        (_ROOT / "runtime/caddy-source.lock").read_text(encoding="utf-8")
+    )["modules"]
+    xray = tomllib.loads(
+        (_ROOT / "runtime/xray-source.lock").read_text(encoding="utf-8")
+    )["modules"]
+    for name in (
+        "golang.org/x/crypto",
+        "golang.org/x/net",
+        "golang.org/x/text",
+        "google.golang.org/grpc",
+    ):
+        assert gateway[name] == xray[name]
+
+
 def test_xray_source_and_security_refresh_are_immutable() -> None:
     lock = tomllib.loads(
         (_ROOT / "runtime/xray-source.lock").read_text(encoding="utf-8")

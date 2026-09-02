@@ -28,7 +28,7 @@
 
 Файлы `proto/xray/**/*.proto` сокращены из XTLS/Xray-core `v26.3.27`, commit `d2758a023cd7f4174a5a5fa4ff66e487d4342ba0`. Они и сгенерированные Python derivatives в `control/src/ezopenpn/integrations/xray_proto` остаются под MPL-2.0. Полный текст находится в `proto/xray/LICENSE`; точные upstream-ссылки перечислены в `proto/xray/UPSTREAM.md`.
 
-Runtime Xray собирается из того же commit. Архив source закреплён checksum в `runtime/xray-source.lock`; `runtime/xray-patched.mod` фиксирует `golang.org/x/crypto` v0.55.0, `golang.org/x/net` v0.58.0, `golang.org/x/text` v0.41.0 и `google.golang.org/grpc` v1.82.1 для устранения известных проблем release-зависимостей. Эти производные module files остаются под MPL-2.0.
+Runtime Xray собирается из того же commit. Архив source закреплён checksum в `runtime/xray-source.lock`; `runtime/xray-patched.mod` фиксирует `golang.org/x/crypto` v0.55.0, `golang.org/x/net` v0.58.0, `golang.org/x/text` v0.41.0 и `google.golang.org/grpc` v1.83.1 для устранения известных проблем release-зависимостей. Эти производные module files остаются под MPL-2.0.
 
 ## Прямые Python-зависимости runtime
 

@@ -126,9 +126,15 @@ def test_release_verification_is_compatible_with_private_github_mirror() -> None
         assert "actions/attest-build-provenance" not in workflow
         assert "actions/attest-sbom" not in workflow
         assert "attestations: write" not in workflow
+        assert "--output-signature" not in workflow
+        assert "--output-certificate" not in workflow
 
     verifier = (ROOT / "tools/verify_release.sh").read_text(encoding="utf-8")
     assert "for command_name in cosign; do" not in verifier
     assert "gh attestation verify" not in verifier
+    assert "ezopenpn-bundle.sig\n" not in verifier
+    assert "ezopenpn-bundle.pem" not in verifier
+    assert "SHA256SUMS.sig\n" not in verifier
+    assert "SHA256SUMS.pem" not in verifier
     assert "ezopenpn-bundle.provenance.json" not in verifier
     assert "ezopenpn-bundle.sbom-attestation.json" not in verifier

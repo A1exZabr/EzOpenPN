@@ -166,13 +166,9 @@ jobs:
         run: |
           cosign sign-blob --yes \
             --bundle dist/ezopenpn-bundle.sigstore.json \
-            --output-signature dist/ezopenpn-bundle.sig \
-            --output-certificate dist/ezopenpn-bundle.pem \
             dist/ezopenpn-bundle.tar.gz
           cosign sign-blob --yes \
             --bundle dist/SHA256SUMS.sigstore.json \
-            --output-signature dist/SHA256SUMS.sig \
-            --output-certificate dist/SHA256SUMS.pem \
             dist/SHA256SUMS
       - name: Verify signed release assets
         run: |

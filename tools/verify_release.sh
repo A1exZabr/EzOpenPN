@@ -135,11 +135,7 @@ if (( signed == 1 )); then
   }
   required=(
     ezopenpn-bundle.sigstore.json
-    ezopenpn-bundle.sig
-    ezopenpn-bundle.pem
     SHA256SUMS.sigstore.json
-    SHA256SUMS.sig
-    SHA256SUMS.pem
     ezopenpn-bundle.spdx.json
   )
   for asset in "${required[@]}"; do

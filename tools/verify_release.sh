@@ -129,7 +129,7 @@ print(manifest["source_commit"])
 PY
 
 if (( signed == 1 )); then
-  for command_name in cosign gh; do
+  for command_name in cosign; do
     command -v "$command_name" >/dev/null 2>&1 || {
       printf 'required signed-release tool is unavailable: %s\n' "$command_name" >&2
       exit 127
@@ -143,8 +143,6 @@ if (( signed == 1 )); then
     SHA256SUMS.sig
     SHA256SUMS.pem
     ezopenpn-bundle.spdx.json
-    ezopenpn-bundle.provenance.json
-    ezopenpn-bundle.sbom-attestation.json
   )
   for asset in "${required[@]}"; do
     [[ -f "${release_directory}/${asset}" && ! -L "${release_directory}/${asset}" ]] || {
@@ -167,7 +165,6 @@ print(manifest["source_commit"])
 PY
 )
   version="${release_metadata[0]}"
-  source_commit="${release_metadata[1]}"
   identity=""
   for workflow in release.yml candidate-release.yml; do
     candidate_identity="https://github.com/A1exZabr/EzOpenPN/.github/workflows/${workflow}@refs/tags/${version}"
@@ -196,12 +193,6 @@ document = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
 if not str(document.get("spdxVersion", "")).startswith("SPDX-"):
     raise SystemExit("release SBOM is invalid")
 PY
-  gh attestation verify "${release_directory}/ezopenpn-bundle.tar.gz" \
-    --bundle "${release_directory}/ezopenpn-bundle.provenance.json" \
-    --repo A1exZabr/EzOpenPN \
-    --cert-identity "$identity" \
-    --source-digest "$source_commit" \
-    --deny-self-hosted-runners >/dev/null
 fi
 
 printf 'release assets verified in %s\n' "$release_directory"

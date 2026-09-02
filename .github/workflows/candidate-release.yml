@@ -25,7 +25,6 @@ jobs:
     runs-on: ubuntu-24.04
     permissions:
       actions: read
-      attestations: write
       contents: read
       id-token: write
       packages: read
@@ -155,25 +154,8 @@ jobs:
             --output-signature dist/SHA256SUMS.sig \
             --output-certificate dist/SHA256SUMS.pem \
             dist/SHA256SUMS
-      - name: Attach GitHub provenance
-        id: provenance
-        uses: actions/attest-build-provenance@977bb373ede98d70efdf65b84cb5f73e068dcc2a
-        with:
-          subject-path: dist/ezopenpn-bundle.tar.gz
-      - name: Attach GitHub SBOM attestation
-        id: sbom-attestation
-        uses: actions/attest-sbom@4651f806c01d8637787e274ac3bdf724ef169f34
-        with:
-          subject-path: dist/ezopenpn-bundle.tar.gz
-          sbom-path: dist/ezopenpn-bundle.spdx.json
-      - name: Preserve attestations and verify signatures
-        env:
-          GH_TOKEN: ${{ github.token }}
+      - name: Verify signed release assets
         run: |
-          cp "${{ steps.provenance.outputs.bundle-path }}" \
-            dist/ezopenpn-bundle.provenance.json
-          cp "${{ steps.sbom-attestation.outputs.bundle-path }}" \
-            dist/ezopenpn-bundle.sbom-attestation.json
           bash tools/verify_release.sh --signed dist
       - name: Upload signed candidate assets
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02

@@ -113,3 +113,21 @@ def test_release_workflow_is_manual_and_evidence_gated() -> None:
     assert "--draft" in workflow
     assert "--draft=false" in workflow
     assert workflow.index("verify_release.sh --signed") < workflow.index("--draft=false")
+
+
+def test_release_verification_is_compatible_with_private_github_mirror() -> None:
+    workflows = [
+        (ROOT / ".github/workflows/release.yml").read_text(encoding="utf-8"),
+        (ROOT / ".github/workflows/candidate-release.yml").read_text(
+            encoding="utf-8"
+        ),
+    ]
+    for workflow in workflows:
+        assert "actions/attest-build-provenance" not in workflow
+        assert "actions/attest-sbom" not in workflow
+        assert "attestations: write" not in workflow
+
+    verifier = (ROOT / "tools/verify_release.sh").read_text(encoding="utf-8")
+    assert "gh attestation verify" not in verifier
+    assert "ezopenpn-bundle.provenance.json" not in verifier
+    assert "ezopenpn-bundle.sbom-attestation.json" not in verifier

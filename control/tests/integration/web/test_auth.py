@@ -120,6 +120,23 @@ def test_security_headers_and_private_schema_are_enabled(web_client: TestClient)
     assert web_client.get("/openapi.json").status_code == 404
 
 
+def test_panel_static_assets_do_not_depend_on_internal_proxy_url(web_app) -> None:
+    with TestClient(web_app, base_url="http://control") as client:
+        response = client.get(
+            "/login",
+            headers={
+                "x-forwarded-host": "203.0.113.10:9443",
+                "x-forwarded-proto": "https",
+            },
+        )
+
+    assert response.status_code == 200
+    assert 'href="/static/app.css"' in response.text
+    assert 'src="/static/app.js"' in response.text
+    assert 'src="/static/ezopenpn-logo.webp"' in response.text
+    assert "http://control/static/" not in response.text
+
+
 def test_unhandled_errors_are_redacted_and_keep_security_headers(web_app) -> None:
     @web_app.get("/test-only-error")
     def test_only_error() -> None:

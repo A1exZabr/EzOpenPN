@@ -5,14 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="color-scheme" content="light">
     <title>{% block title %}EzOpenPN{% endblock %}</title>
-    <link rel="stylesheet" href="{{ url_for('static', path='/app.css') }}">
-    <script src="{{ url_for('static', path='/app.js') }}" defer></script>
+    <link rel="stylesheet" href="/static/app.css">
+    <script src="/static/app.js" defer></script>
   </head>
   <body class="{% block body_class %}{% endblock %}">
     <div class="page-shell">
       <header class="topbar">
         <a class="brand" href="/" aria-label="EzOpenPN, главная">
-          <img class="brand-logo" src="{{ url_for('static', path='/ezopenpn-logo.webp') }}" alt="EzOpenPN" width="850" height="280">
+          <img class="brand-logo" src="/static/ezopenpn-logo.webp" alt="EzOpenPN" width="850" height="280">
         </a>
         <span class="local-label"><i aria-hidden="true"></i>Личный сервер</span>
       </header>

@@ -33,6 +33,15 @@
       "workflow_identity": "https://github.com/A1exZabr/EzOpenPN/.github/workflows/images.yml@refs/heads/fixture"
     },
     {
+      "name": "hysteria",
+      "reference": "ghcr.io/a1exzabr/ezopenpn-hysteria",
+      "digest": "sha256:5555555555555555555555555555555555555555555555555555555555555555",
+      "sbom_path": "hysteria.spdx.json",
+      "sbom_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      "provenance_subject": "ghcr.io/a1exzabr/ezopenpn-hysteria@sha256:5555555555555555555555555555555555555555555555555555555555555555",
+      "workflow_identity": "https://github.com/A1exZabr/EzOpenPN/.github/workflows/images.yml@refs/heads/fixture"
+    },
+    {
       "name": "xray",
       "reference": "ghcr.io/a1exzabr/ezopenpn-xray",
       "digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222",

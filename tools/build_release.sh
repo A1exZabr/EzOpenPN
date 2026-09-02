@@ -82,7 +82,6 @@ trap 'case "$temporary_root" in "$output_parent"/.ezopenpn-release.*) rm -rf -- 
 python3 - \
   "$repository_root" \
   "$images_manifest" \
-  "$repository_root/deploy/images.lock" \
   "$version" \
   "$source_commit" \
   "$SOURCE_DATE_EPOCH" \
@@ -99,16 +98,14 @@ import stat
 import subprocess
 import sys
 import tarfile
-import tomllib
 from pathlib import Path, PurePosixPath
 
 root = Path(sys.argv[1])
 image_manifest_path = Path(sys.argv[2])
-upstream_lock_path = Path(sys.argv[3])
-version = sys.argv[4]
-source_commit = sys.argv[5]
-timestamp = int(sys.argv[6])
-output = Path(sys.argv[7])
+version = sys.argv[3]
+source_commit = sys.argv[4]
+timestamp = int(sys.argv[5])
+output = Path(sys.argv[6])
 
 
 def sha256_bytes(value: bytes) -> str:
@@ -136,17 +133,13 @@ project_by_name = {
     for item in project_images
     if isinstance(item, dict) and isinstance(item.get("name"), str)
 }
-if set(project_by_name) != {"control", "xray", "cert-sync", "gateway"}:
+if set(project_by_name) != {"control", "xray", "hysteria", "cert-sync", "gateway"}:
     raise SystemExit("project image manifest is incomplete")
 
-upstream = tomllib.loads(upstream_lock_path.read_text(encoding="utf-8"))["images"]
 images = {
     name: image_entry(project_by_name[name].get("reference"), project_by_name[name].get("digest"))
-    for name in ("control", "xray", "cert-sync", "gateway")
+    for name in ("control", "xray", "hysteria", "cert-sync", "gateway")
 }
-images["hysteria"] = image_entry(
-    upstream["hysteria"].get("repository"), upstream["hysteria"].get("digest")
-)
 
 tracked = subprocess.run(
     [

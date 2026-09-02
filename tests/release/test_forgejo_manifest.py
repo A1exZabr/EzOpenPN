@@ -13,7 +13,8 @@ def test_verified_manifest_uses_content_checked_forgejo_digests(tmp_path: Path) 
     forgejo_digests = tmp_path / "forgejo-digests.json"
     destination = tmp_path / "images.forgejo.json"
     images = []
-    for index, name in enumerate(("control", "xray", "cert-sync", "gateway"), 1):
+    names = ("control", "xray", "hysteria", "cert-sync", "gateway")
+    for index, name in enumerate(names, 1):
         digest = f"sha256:{index:064x}"
         images.append(
             {
@@ -37,9 +38,7 @@ def test_verified_manifest_uses_content_checked_forgejo_digests(tmp_path: Path) 
         json.dumps(
             {
                 name: f"sha256:{index + 16:064x}"
-                for index, name in enumerate(
-                    ("control", "xray", "cert-sync", "gateway"), 1
-                )
+                for index, name in enumerate(names, 1)
             }
         ),
         encoding="utf-8",
@@ -70,15 +69,17 @@ def test_verified_manifest_uses_content_checked_forgejo_digests(tmp_path: Path) 
     assert [image["name"] for image in result["images"]] == [
         "control",
         "xray",
+        "hysteria",
         "cert-sync",
         "gateway",
     ]
     assert [image["digest"] for image in result["images"]] == [
-        f"sha256:{index:064x}" for index in range(17, 21)
+        f"sha256:{index:064x}" for index in range(17, 22)
     ]
     assert [image["reference"] for image in result["images"]] == [
         "git.alexzabrodin.pro/alex/ezopenpn-control",
         "git.alexzabrodin.pro/alex/ezopenpn-xray",
+        "git.alexzabrodin.pro/alex/ezopenpn-hysteria",
         "git.alexzabrodin.pro/alex/ezopenpn-cert-sync",
         "git.alexzabrodin.pro/alex/ezopenpn-gateway",
     ]

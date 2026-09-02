@@ -32,6 +32,7 @@ def test_release_image_manifest_has_attested_digest() -> None:
     assert {image["name"] for image in images} == {
         "control",
         "xray",
+        "hysteria",
         "gateway",
         "cert-sync",
     }
@@ -62,6 +63,7 @@ def test_image_workflow_is_manual_and_never_writes_latest() -> None:
     assert "attest-build-provenance" not in workflow
     assert "attest-sbom" not in workflow
     assert "dockerfile: runtime/Dockerfile.gateway" in workflow
+    assert "dockerfile: runtime/Dockerfile.hysteria" in workflow
 
 
 def test_image_verifier_checks_both_private_registry_attestations() -> None:
@@ -114,6 +116,7 @@ print((Path(os.environ["FAKE_COSIGN_DATA"]) / f"{name}.{kind}.json").read_text()
         "cert-sync": "runtime/Dockerfile.cert-sync",
         "control": "control/Dockerfile",
         "gateway": "runtime/Dockerfile.gateway",
+        "hysteria": "runtime/Dockerfile.hysteria",
         "xray": "runtime/Dockerfile.xray",
     }
     images: list[dict[str, str]] = []
@@ -219,7 +222,7 @@ print((Path(os.environ["FAKE_COSIGN_DATA"]) / f"{name}.{kind}.json").read_text()
     ]
     accepted = subprocess.run(command, env=environment, capture_output=True, text=True)
     assert accepted.returncode == 0, accepted.stderr
-    assert "verified 4 signed image(s)" in accepted.stdout
+    assert "verified 5 signed image(s)" in accepted.stdout
 
     changed = json.loads((provenance_dir / "control.slsa.json").read_text())
     changed["buildDefinition"]["externalParameters"]["sourceCommit"] = "f" * 40

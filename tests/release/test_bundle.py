@@ -79,6 +79,9 @@ def test_manifest_covers_payload_and_all_runtime_images(tmp_path: Path) -> None:
             stream = bundle.extractfile(name)
             assert stream is not None
             assert hashlib.sha256(stream.read()).hexdigest() == expected
+        assert manifest["images"]["hysteria"]["reference"] == (
+            "ghcr.io/a1exzabr/ezopenpn-hysteria"
+        )
 
 
 def test_release_assets_verify_and_bootstrap_is_exact(tmp_path: Path) -> None:

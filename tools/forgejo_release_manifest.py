@@ -5,7 +5,7 @@ import json
 import re
 from pathlib import Path
 
-IMAGE_NAMES = ("control", "xray", "cert-sync", "gateway")
+IMAGE_NAMES = ("control", "xray", "hysteria", "cert-sync", "gateway")
 SOURCE_PATTERN = re.compile(r"[0-9a-f]{40}")
 DIGEST_PATTERN = re.compile(r"sha256:[0-9a-f]{64}")
 FORGEJO_ROOT = "git.alexzabrodin.pro/alex"

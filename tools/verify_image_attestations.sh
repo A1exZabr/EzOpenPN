@@ -67,9 +67,9 @@ if repository != "A1exZabr/EzOpenPN":
 if not isinstance(commit, str) or re.fullmatch(r"[0-9a-f]{40}", commit) is None:
     raise SystemExit("invalid source commit")
 images = payload.get("images")
-if not isinstance(images, list) or len(images) != 4:
-    raise SystemExit("image manifest must contain four images")
-expected = {"control", "xray", "cert-sync", "gateway"}
+if not isinstance(images, list) or len(images) != 5:
+    raise SystemExit("image manifest must contain five images")
+expected = {"control", "xray", "hysteria", "cert-sync", "gateway"}
 seen: set[str] = set()
 for image in images:
     if not isinstance(image, dict):
@@ -236,6 +236,7 @@ sbom = json.loads(Path(sbom_path).read_text(encoding="utf-8"))
 expected_dockerfiles = {
     "control": "control/Dockerfile",
     "xray": "runtime/Dockerfile.xray",
+    "hysteria": "runtime/Dockerfile.hysteria",
     "cert-sync": "runtime/Dockerfile.cert-sync",
     "gateway": "runtime/Dockerfile.gateway",
 }

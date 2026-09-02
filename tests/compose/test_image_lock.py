@@ -52,6 +52,7 @@ def test_lock_matches_declared_sources(
 def test_runtime_dockerfiles_use_only_locked_build_arguments() -> None:
     for relative in (
         "runtime/Dockerfile.xray",
+        "runtime/Dockerfile.hysteria",
         "runtime/Dockerfile.cert-sync",
         "runtime/Dockerfile.gateway",
     ):

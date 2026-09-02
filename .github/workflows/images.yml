@@ -31,6 +31,8 @@ jobs:
             dockerfile: control/Dockerfile
           - name: xray
             dockerfile: runtime/Dockerfile.xray
+          - name: hysteria
+            dockerfile: runtime/Dockerfile.hysteria
           - name: cert-sync
             dockerfile: runtime/Dockerfile.cert-sync
           - name: gateway

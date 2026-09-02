@@ -8,8 +8,9 @@ ROOT = Path(__file__).resolve().parents[2]
 SOURCE_COMMIT = "0123456789abcdef0123456789abcdef01234567"
 
 
-def test_verified_manifest_is_retargeted_without_changing_digests(tmp_path: Path) -> None:
+def test_verified_manifest_uses_content_checked_forgejo_digests(tmp_path: Path) -> None:
     source = tmp_path / "images.release.json"
+    forgejo_digests = tmp_path / "forgejo-digests.json"
     destination = tmp_path / "images.forgejo.json"
     images = []
     for index, name in enumerate(("control", "xray", "cert-sync", "gateway"), 1):
@@ -32,6 +33,17 @@ def test_verified_manifest_is_retargeted_without_changing_digests(tmp_path: Path
         ),
         encoding="utf-8",
     )
+    forgejo_digests.write_text(
+        json.dumps(
+            {
+                name: f"sha256:{index + 16:064x}"
+                for index, name in enumerate(
+                    ("control", "xray", "cert-sync", "gateway"), 1
+                )
+            }
+        ),
+        encoding="utf-8",
+    )
 
     subprocess.run(
         [
@@ -41,6 +53,8 @@ def test_verified_manifest_is_retargeted_without_changing_digests(tmp_path: Path
             SOURCE_COMMIT,
             "--input",
             str(source),
+            "--forgejo-digests",
+            str(forgejo_digests),
             "--output",
             str(destination),
         ],
@@ -60,7 +74,7 @@ def test_verified_manifest_is_retargeted_without_changing_digests(tmp_path: Path
         "gateway",
     ]
     assert [image["digest"] for image in result["images"]] == [
-        f"sha256:{index:064x}" for index in range(1, 5)
+        f"sha256:{index:064x}" for index in range(17, 21)
     ]
     assert [image["reference"] for image in result["images"]] == [
         "git.alexzabrodin.pro/alex/ezopenpn-control",

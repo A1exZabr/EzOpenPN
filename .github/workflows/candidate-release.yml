@@ -90,15 +90,44 @@ jobs:
             --provenance-dir "$GITHUB_WORKSPACE/image-evidence/artifacts/provenance"
       - name: Bind and verify anonymous Forgejo images
         run: |
+          digest_map="$RUNNER_TEMP/forgejo-digests.tsv"
+          : >"$digest_map"
+          jq -r '.images[] | [.name, .reference, .digest] | @tsv' \
+            image-evidence/images.release.json |
+            while IFS=$'\t' read -r name source_reference source_digest; do
+              forgejo_reference="git.alexzabrodin.pro/alex/ezopenpn-${name}"
+              forgejo_tag="${forgejo_reference}:sha-${GITHUB_SHA}"
+              docker pull "${source_reference}@${source_digest}"
+              docker pull "$forgejo_tag"
+              source_id="$(docker image inspect \
+                --format '{{.Id}}' "${source_reference}@${source_digest}")"
+              forgejo_id="$(docker image inspect --format '{{.Id}}' "$forgejo_tag")"
+              test "$source_id" = "$forgejo_id"
+              forgejo_digest="$(
+                docker image inspect --format '{{json .RepoDigests}}' "$forgejo_tag" |
+                  FORGEJO_REFERENCE="$forgejo_reference" python -c \
+                    'import json,os,sys; prefix=os.environ["FORGEJO_REFERENCE"]+"@"; print(next(value.removeprefix(prefix) for value in json.load(sys.stdin) if value.startswith(prefix)))'
+              )"
+              [[ "$forgejo_digest" =~ ^sha256:[0-9a-f]{64}$ ]]
+              printf '%s\t%s\n' "$name" "$forgejo_digest" >>"$digest_map"
+            done
+          python - "$digest_map" image-evidence/forgejo-digests.json <<'PY'
+          import json
+          import sys
+
+          values = dict(
+              line.rstrip("\n").split("\t", 1)
+              for line in open(sys.argv[1], encoding="utf-8")
+          )
+          with open(sys.argv[2], "w", encoding="utf-8") as stream:
+              json.dump(values, stream, indent=2, sort_keys=True)
+              stream.write("\n")
+          PY
           python tools/forgejo_release_manifest.py \
             --source-commit "$GITHUB_SHA" \
             --input image-evidence/images.release.json \
+            --forgejo-digests image-evidence/forgejo-digests.json \
             --output image-evidence/images.forgejo.json
-          jq -r '.images[] | [.reference, .digest] | @tsv' \
-            image-evidence/images.forgejo.json |
-            while IFS=$'\t' read -r reference digest; do
-              docker pull "${reference}@${digest}"
-            done
       - name: Build deterministic bundle and SPDX SBOM
         env:
           RELEASE_TAG: ${{ inputs.tag }}

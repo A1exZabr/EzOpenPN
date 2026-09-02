@@ -15,6 +15,7 @@ def parse_arguments() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("--source-commit", required=True)
     parser.add_argument("--input", type=Path, required=True)
+    parser.add_argument("--forgejo-digests", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     return parser.parse_args()
 
@@ -25,6 +26,8 @@ def main() -> None:
         raise SystemExit("invalid source commit")
     if not arguments.input.is_file() or arguments.input.is_symlink():
         raise SystemExit("image manifest is not a regular file")
+    if not arguments.forgejo_digests.is_file() or arguments.forgejo_digests.is_symlink():
+        raise SystemExit("Forgejo digest map is not a regular file")
 
     source_manifest = json.loads(arguments.input.read_text(encoding="utf-8"))
     source = source_manifest.get("source")
@@ -40,11 +43,20 @@ def main() -> None:
     }
     if set(by_name) != set(IMAGE_NAMES):
         raise SystemExit("image manifest is incomplete")
+    forgejo_digests = json.loads(arguments.forgejo_digests.read_text(encoding="utf-8"))
+    if not isinstance(forgejo_digests, dict) or set(forgejo_digests) != set(IMAGE_NAMES):
+        raise SystemExit("Forgejo digest map is incomplete")
 
     release_images = []
     for name in IMAGE_NAMES:
-        digest = by_name[name].get("digest")
-        if not isinstance(digest, str) or DIGEST_PATTERN.fullmatch(digest) is None:
+        source_digest = by_name[name].get("digest")
+        digest = forgejo_digests[name]
+        if (
+            not isinstance(source_digest, str)
+            or DIGEST_PATTERN.fullmatch(source_digest) is None
+            or not isinstance(digest, str)
+            or DIGEST_PATTERN.fullmatch(digest) is None
+        ):
             raise SystemExit("image digest is invalid")
         release_images.append(
             {

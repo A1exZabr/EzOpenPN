@@ -20,14 +20,6 @@ INSTALL_COMMAND = (
     "install.sh | sudo bash"
 )
 RESET_COMMAND = "sudo ezopenpn admin reset-password"
-PROFILE_STEPS = (
-    "Создайте профиль",
-    "Установите совместимое приложение",
-    "Отсканируйте QR-код или вставьте ссылку",
-    "Переключите транспорт, если первый вариант нестабилен",
-)
-
-
 def _text(path: Path) -> str:
     return path.read_text(encoding="utf-8")
 
@@ -66,22 +58,26 @@ def test_readme_names_supported_hosts_and_exact_ports() -> None:
         assert port in readme
 
 
-def test_profile_help_has_the_same_four_steps_in_docs_and_panel() -> None:
+def test_profile_help_has_three_contextual_steps_in_docs_and_panel() -> None:
     profile_docs = _text(ROOT / "docs/profiles.md")
     dashboard = _text(ROOT / "control/src/ezopenpn/web/templates/dashboard.html")
     profile_page = _text(ROOT / "control/src/ezopenpn/web/templates/profile.html")
-    for step in PROFILE_STEPS:
-        assert step in profile_docs
-        assert step in dashboard
-        assert step in profile_page
-    assert profile_docs.count("data-profile-step") == 4
-    assert dashboard.count("data-step=") == 4
-    assert profile_page.count("data-step=") == 4
+    assert profile_docs.count("data-profile-step") == 3
+    assert dashboard.count("<li>") == 3
+    assert profile_page.count("data-step=") == 3
+    assert "Создайте профиль" in profile_docs
+    assert "Создайте профиль" in dashboard
+    assert "Установите приложение" in profile_page
+    assert "QR-код" in profile_docs
+    assert "QR-код" in dashboard
+    assert "QR-код" in profile_page
 
 
 def test_panel_keeps_password_recovery_reminder_visible() -> None:
+    base = _text(ROOT / "control/src/ezopenpn/web/templates/base.html")
     dashboard = _text(ROOT / "control/src/ezopenpn/web/templates/dashboard.html")
-    assert RESET_COMMAND in dashboard
+    assert RESET_COMMAND in base
+    assert '{% extends "base.html" %}' in dashboard
 
 
 def test_troubleshooting_covers_every_stable_installer_code() -> None:

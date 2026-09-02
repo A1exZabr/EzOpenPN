@@ -129,12 +129,10 @@ print(manifest["source_commit"])
 PY
 
 if (( signed == 1 )); then
-  for command_name in cosign; do
-    command -v "$command_name" >/dev/null 2>&1 || {
-      printf 'required signed-release tool is unavailable: %s\n' "$command_name" >&2
-      exit 127
-    }
-  done
+  command -v cosign >/dev/null 2>&1 || {
+    printf '%s\n' 'required signed-release tool is unavailable: cosign' >&2
+    exit 127
+  }
   required=(
     ezopenpn-bundle.sigstore.json
     ezopenpn-bundle.sig

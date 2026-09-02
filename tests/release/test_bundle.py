@@ -128,6 +128,7 @@ def test_release_verification_is_compatible_with_private_github_mirror() -> None
         assert "attestations: write" not in workflow
 
     verifier = (ROOT / "tools/verify_release.sh").read_text(encoding="utf-8")
+    assert "for command_name in cosign; do" not in verifier
     assert "gh attestation verify" not in verifier
     assert "ezopenpn-bundle.provenance.json" not in verifier
     assert "ezopenpn-bundle.sbom-attestation.json" not in verifier

@@ -283,10 +283,18 @@ code {
   padding: 34px 0 52px;
 }
 
-.welcome-panel h1 {
-  max-width: 700px;
-  margin-top: 26px;
-  font-size: clamp(3.1rem, 6.2vw, 5.8rem);
+.login-heading {
+  margin-top: 24px;
+  font-size: clamp(2rem, 5.5vw, 5rem);
+  line-height: 0.98;
+  overflow-wrap: normal;
+  word-break: normal;
+  hyphens: none;
+}
+
+.login-heading > span {
+  display: block;
+  white-space: nowrap;
 }
 
 .route-map {
@@ -1092,8 +1100,8 @@ button.danger:hover {
     padding-bottom: 28px;
   }
 
-  .welcome-panel h1 {
-    font-size: clamp(2.8rem, 10vw, 4.6rem);
+  .login-heading {
+    font-size: clamp(1.75rem, 9.5vw, 4rem);
   }
 
   .route-map {

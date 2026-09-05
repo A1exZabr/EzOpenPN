@@ -41,7 +41,11 @@ _backup_control_command() {
     "$TEST_BACKUP_CONTROL_BIN" "$@"
     return
   fi
-  _backup_compose exec -T control python -m ezopenpn.cli \
+  local invocation=(exec -T)
+  if [[ "${BACKUP_CONTROL_OFFLINE:-0}" == 1 ]]; then
+    invocation=(run --rm --no-deps -T)
+  fi
+  _backup_compose "${invocation[@]}" control python -m ezopenpn.cli \
     --config /etc/ezopenpn/control.toml "$@"
 }
 

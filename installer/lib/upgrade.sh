@@ -166,6 +166,10 @@ _upgrade_preflight() {
 }
 
 _upgrade_create_preimage() {
+  # The stack is stopped: use the old image for a one-shot CLI, not its web app.
+  # Consumed by _backup_control_command in backup.sh.
+  # shellcheck disable=SC2034
+  local BACKUP_CONTROL_OFFLINE=1
   if [[ -n "${TEST_UPGRADE_BACKUP_BIN:-}" ]]; then
     UPGRADE_PREIMAGE="$("$TEST_UPGRADE_BACKUP_BIN" create)" || return
   else
@@ -705,8 +709,11 @@ PY
   UPGRADE_PHASE="${fields[5]}"
   local operations_root
   operations_root="$(_backup_path /var/lib/ezopenpn/operations)"
-  if [[ "$UPGRADE_PREIMAGE" != /* || ! -e "$UPGRADE_PREIMAGE" || \
-    "$UPGRADE_STAGE" != "${operations_root}/.stage."* || \
+  if [[ "$UPGRADE_PHASE" != prepared && \
+    ( "$UPGRADE_PREIMAGE" != /* || ! -e "$UPGRADE_PREIMAGE" ) ]]; then
+    return 1
+  fi
+  if [[ "$UPGRADE_STAGE" != "${operations_root}/.stage."* || \
     ! -d "$UPGRADE_STAGE" || -L "$UPGRADE_STAGE" ]]; then
     return 1
   fi
@@ -728,6 +735,11 @@ _upgrade_recover_interrupted() {
     return
   }
   if [[ "$UPGRADE_PHASE" == prepared ]]; then
+    # No persistent state has switched. Resume without restoring an older DB.
+    if ! _upgrade_service_command start || ! _upgrade_service_command health; then
+      die 1 "E_UPGRADE_RECOVERY: прежний стек не удалось запустить"
+      return
+    fi
     _upgrade_clear_journal
     _upgrade_cleanup_stage
     return 0
@@ -783,11 +795,7 @@ _upgrade_transaction() {
     return 0
   fi
 
-  _upgrade_create_preimage || {
-    _upgrade_cleanup_fetch
-    die 1 "E_UPGRADE_BACKUP: резервная копия не создана"
-    return
-  }
+  UPGRADE_PREIMAGE=""
   operations_root="$(_backup_path /var/lib/ezopenpn/operations)"
   UPGRADE_STAGE="$(mktemp -d "${operations_root}/.stage.XXXXXXXX")" || {
     _upgrade_cleanup_fetch
@@ -815,10 +823,13 @@ _upgrade_transaction() {
     return
   fi
 
-  _upgrade_write_journal switching || failure=journal
   stop_attempted=1
-  if [[ -z "$failure" ]] && ! _upgrade_service_command stop; then
+  if ! _upgrade_service_command stop; then
     failure=stop
+  elif ! _upgrade_create_preimage; then
+    failure=backup
+  elif ! _upgrade_write_journal switching; then
+    failure=journal
   fi
   if [[ -z "$failure" ]]; then
     touched=1
@@ -859,8 +870,11 @@ _upgrade_transaction() {
         return
       fi
     elif (( stop_attempted == 1 )); then
-      _upgrade_service_command start >/dev/null 2>&1 || true
-      _upgrade_service_command health >/dev/null 2>&1 || true
+      if ! _upgrade_service_command start || ! _upgrade_service_command health; then
+        _upgrade_cleanup_fetch
+        die 1 "E_UPGRADE_RECOVERY: прежний стек не запущен; повторите update для восстановления"
+        return
+      fi
       _upgrade_write_failure_record "$failure" || true
       _upgrade_clear_journal
     fi
@@ -878,6 +892,7 @@ _upgrade_transaction() {
 
 upgrade_run() {
   local mode="$1"
+  local operation="$mode"
   _diagnostic_require_installation || return
   _backup_require_tool || return
   acquire_operation_lock "$mode" || return
@@ -885,11 +900,31 @@ upgrade_run() {
     release_operation_lock
     return 1
   fi
+  if [[ "$operation" == install ]]; then
+    # Resume a preserved, uninstalled stack before checking the latest release.
+    # Preflight failures leave an already running installation untouched.
+    if ! _upgrade_preflight; then
+      release_operation_lock
+      die 1 "E_UPGRADE_PREFLIGHT: сервер не прошёл проверку"
+      return
+    fi
+    if ! apply_firewall_rules || ! systemctl enable --now ezopenpn.service || \
+      ! _upgrade_service_command health; then
+      release_operation_lock
+      die 1 "E_INSTALL_RESUME: сохранённый стек не готов; выполните sudo ezopenpn doctor"
+      return
+    fi
+    mode=update
+  fi
   local status
   if _upgrade_transaction "$mode"; then
     status=0
   else
     status=$?
+  fi
+  if [[ "$operation" == install && "$status" == 0 ]]; then
+    diagnostic_status || status=$?
+    printf '%s\n' 'Сброс пароля: sudo ezopenpn admin reset-password'
   fi
   release_operation_lock
   return "$status"

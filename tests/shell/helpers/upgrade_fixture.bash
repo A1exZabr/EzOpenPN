@@ -92,6 +92,8 @@ prepare_upgrade_fixture() {
 set -euo pipefail
 case "$1" in
   create)
+    [[ "${TEST_UPGRADE_BACKUP_FAIL:-0}" != 1 ]] || exit 1
+    [[ "$(cat "$TEST_UPGRADE_SERVICE_STATE")" == stopped ]] || exit 1
     destination="$TEST_UPGRADE_PREIMAGE_ROOT/preimage-$RANDOM"
     mkdir -p "$destination"
     cp "$EZOPENPN_ROOT_PREFIX/var/lib/ezopenpn/control/ezopenpn.sqlite3" "$destination/database"
@@ -120,8 +122,11 @@ case "$1" in
   stop) printf '%s\n' stopped >"$TEST_UPGRADE_SERVICE_STATE" ;;
   start) printf '%s\n' running >"$TEST_UPGRADE_SERVICE_STATE" ;;
   health)
-    [[ "$(cat "$TEST_UPGRADE_SERVICE_STATE")" == running ]]
+    [[ "$(cat "$TEST_UPGRADE_SERVICE_STATE")" == running ]] || exit 1
     current="$(readlink "$EZOPENPN_ROOT_PREFIX/etc/ezopenpn/current")"
+    if [[ "${TEST_OLD_CONTROL_HEALTH:-}" == fail && "$current" == releases/v0.1.0 ]]; then
+      exit 1
+    fi
     if [[ "${TEST_NEW_CONTROL_HEALTH:-}" == fail && "$current" == releases/v0.2.0 ]]; then
       exit 1
     fi
@@ -133,6 +138,10 @@ SH
 #!/usr/bin/env bash
 set -euo pipefail
 printf '%s\n' pull >>"$TEST_UPGRADE_EVENTS"
+if [[ "${TEST_PROFILE_REVOKED_DURING_PULL:-0}" == 1 ]]; then
+  printf '%s\n' profile-revoked-during-pull \
+    >"$EZOPENPN_ROOT_PREFIX/var/lib/ezopenpn/control/ezopenpn.sqlite3"
+fi
 SH
   cat >"$TEST_UPGRADE_PREPARE_BIN" <<'SH'
 #!/usr/bin/env bash

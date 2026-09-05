@@ -54,6 +54,48 @@ test("approved identity leads a beginner-focused panel", async ({ page }) => {
   ).toBeVisible();
 });
 
+for (const width of [320, 390, 768, 901, 1024, 1280, 1440]) {
+  test(`landing heading places each whole word on its own line at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto("/login");
+    const heading = page.getByRole("heading", {
+      name: "Управляйте подключениями без лишних настроек"
+    });
+    const layout = await heading.evaluate((element) => {
+      const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
+      const words: { text: string; tops: number[]; fits: boolean }[] = [];
+      const bounds = element.getBoundingClientRect();
+      let node: Node | null;
+      while ((node = walker.nextNode())) {
+        for (const match of (node.textContent ?? "").matchAll(/\S+/g)) {
+          const range = document.createRange();
+          range.setStart(node, match.index!);
+          range.setEnd(node, match.index! + match[0].length);
+          const rects = Array.from(range.getClientRects());
+          words.push({
+            text: match[0],
+            tops: [...new Set(rects.map((rect) => Math.round(rect.top)))],
+            fits: rects.every((rect) => rect.left >= bounds.left - 1 &&
+              rect.right <= bounds.right + 1 && rect.right <= window.innerWidth)
+          });
+        }
+      }
+      return {
+        words,
+        lineCount: new Set(words.flatMap((word) => word.tops)).size
+      };
+    });
+    expect(layout.words.map((word) => word.text)).toEqual([
+      "Управляйте", "подключениями", "без", "лишних", "настроек"
+    ]);
+    expect(layout.lineCount).toBe(5);
+    for (const word of layout.words) {
+      expect(word.tops, `${word.text} must not split`).toHaveLength(1);
+      expect(word.fits, `${word.text} must fit the heading`).toBe(true);
+    }
+  });
+}
+
 test("invalid administrator credentials are rejected", async ({ page }) => {
   await page.goto("/login");
   await page.getByLabel("Логин").fill(adminLogin);

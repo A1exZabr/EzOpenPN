@@ -6,7 +6,7 @@ script_directory="$(cd -P -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 assertion_script="${script_directory}/assert-preserved.sh"
 host="${EZOPENPN_TEST_HOST:-}"
 ssh_binary="${EZOPENPN_TEST_SSH_BIN:-ssh}"
-install_command="${EZOPENPN_TEST_INSTALL_COMMAND:-curl -fsSL https://raw.githubusercontent.com/A1exZabr/EzOpenPN/main/installer/install.sh | sudo bash}"
+install_command="${EZOPENPN_TEST_INSTALL_COMMAND:-curl -fsSL https://git.alexzabrodin.pro/ezopenpn/releases/latest/download/install.sh | sudo bash}"
 
 if [[ -z "$host" || "$host" == -* || \
   ! "$host" =~ ^[A-Za-z0-9._@:-]+$ ]]; then

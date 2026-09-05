@@ -276,37 +276,14 @@ PY
     add_blocker signed_release_tag_missing
   fi
 
-  if gh release view "$release_tag" --repo A1exZabr/EzOpenPN \
-    --json isDraft,isPrerelease,tagName >"$audit_root/release.json" 2>/dev/null; then
-    python3 - "$audit_root/release.json" <<'PY' >"$audit_root/release-results"
-import json
-import sys
-
-release = json.load(open(sys.argv[1], encoding="utf-8"))
-if release.get("isDraft") is not False:
-    print("private_release_still_draft")
-if release.get("isPrerelease") is not False:
-    print("release_is_prerelease")
-PY
-    while IFS= read -r code; do
-      [[ -n "$code" ]] && add_blocker "$code"
-    done <"$audit_root/release-results"
-    if command -v cosign >/dev/null 2>&1; then
-      install -d -m 0700 "$audit_root/release-assets"
-      if gh release download "$release_tag" --repo A1exZabr/EzOpenPN \
-        --dir "$audit_root/release-assets" >/dev/null 2>&1; then
-        if ! bash tools/verify_release.sh --signed "$audit_root/release-assets" \
-          >/dev/null 2>&1; then
-          add_blocker release_asset_verification_failed
-        fi
-      else
-        add_blocker release_asset_download_failed
-      fi
-    else
-      add_blocker cosign_unavailable
+  # GitHub is the private CI mirror; users obtain releases from Forgejo.
+  if command -v cosign >/dev/null 2>&1; then
+    if ! bash tools/verify_release.sh --published "$release_tag" "$head_commit" \
+      >/dev/null 2>&1; then
+      add_blocker published_release_verification_failed
     fi
   else
-    add_blocker private_release_missing
+    add_blocker cosign_unavailable
   fi
 fi
 

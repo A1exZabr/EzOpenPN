@@ -23,7 +23,7 @@ setup() {
   [ "$(readlink "$TEST_ROOT/etc/ezopenpn/current")" = releases/v0.1.0 ]
   [ "$(upgrade_state_version)" = v0.1.0 ]
   [ "$(cat "$TEST_UPGRADE_SERVICE_STATE")" = running ]
-  [ "$(cat "$TEST_UPGRADE_EVENTS")" = $'backup\npull\nprepare\nstop\nmigrate\nstart\nhealth' ]
+  [ "$(cat "$TEST_UPGRADE_EVENTS")" = $'pull\nprepare\nstop\nbackup\nmigrate\nstart\nhealth' ]
 }
 
 @test "reinstall replaces damaged release files while preserving data" {

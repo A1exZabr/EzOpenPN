@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from concurrent.futures import ThreadPoolExecutor
 from ipaddress import IPv4Address
 from pathlib import Path
+from threading import Event
 from uuid import UUID
 
 import pytest
@@ -17,7 +19,7 @@ from ezopenpn.profiles.coordinator import (
     ProfileRevocationFailed,
 )
 from ezopenpn.profiles.links import ProfileLinkService, TransportLinkConfig
-from ezopenpn.profiles.reconcile import RuntimeHealth
+from ezopenpn.profiles.reconcile import RuntimeHealth, RuntimeReconciler
 from ezopenpn.profiles.repository import ProfileNotFound, ProfileRepository
 from ezopenpn.profiles.runtime import ReconcileResult
 from ezopenpn.profiles.service import ProfileService
@@ -177,6 +179,65 @@ def test_create_returns_links_only_after_runtime_is_active(
     assert result.link_bundle.vless_link.startswith("vless://")
     assert result.link_bundle.hysteria_link.startswith("hysteria2://")
     assert fixture.events[0].startswith("xray:add:")
+
+
+@pytest.mark.parametrize("operation", ["disable", "delete"])
+def test_concurrent_reconcile_cannot_restore_revoked_access(
+    fixture: CoordinatorFixture, operation: str
+) -> None:
+    snapshot_taken, resume_reconcile, revocation_started = Event(), Event(), Event()
+
+    class GatedXray(FakeXray):
+        def __init__(self) -> None:
+            super().__init__(fixture.events)
+            self.users: set[str] = set()
+
+        def add_user(self, runtime_id: str, user_id: UUID) -> None:
+            super().add_user(runtime_id, user_id)
+            self.users.add(runtime_id)
+
+        def remove_user(self, runtime_id: str) -> None:
+            super().remove_user(runtime_id)
+            self.users.discard(runtime_id)
+
+        def list_users(self) -> set[str]:
+            snapshot_taken.set()
+            assert resume_reconcile.wait(5)
+            return set(self.users)
+
+    xray = GatedXray()
+    fixture.coordinator._xray = xray
+    fixture.coordinator._reconciler = RuntimeReconciler(
+        fixture.repository, fixture.cipher, xray, fixture.supervisor
+    )
+    profile = fixture.coordinator.create("Телефон")
+    # A restarted runtime has not yet recovered its active database profiles.
+    xray.users.clear()
+
+    def revoke() -> None:
+        revocation_started.set()
+        getattr(fixture.coordinator, operation)(profile.profile_id)
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        reconciliation = executor.submit(fixture.coordinator.reconcile)
+        assert snapshot_taken.wait(5)
+        revocation = executor.submit(revoke)
+        try:
+            assert revocation_started.wait(5)
+            # Revocation must not finish inside an in-flight runtime snapshot.
+            with pytest.raises(TimeoutError):
+                revocation.result(timeout=0.15)
+        finally:
+            resume_reconcile.set()
+        assert reconciliation.result(timeout=5).error_code is None
+        revocation.result(timeout=5)
+
+    assert profile.runtime_id not in xray.users
+    if operation == "disable":
+        assert fixture.repository.get(profile.profile_id).state is ProfileState.DISABLED
+    else:
+        with pytest.raises(ProfileNotFound):
+            fixture.repository.get(profile.profile_id)
 
 
 def test_failed_create_never_returns_links(fixture: CoordinatorFixture) -> None:

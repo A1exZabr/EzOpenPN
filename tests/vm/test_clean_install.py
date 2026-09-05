@@ -55,6 +55,20 @@ def test_vm_matrix_is_complete_and_locked() -> None:
         assert image["url"].endswith(image["filename"])
 
 
+@pytest.mark.parametrize("alias", ["current", "latest", "daily"])
+def test_vm_runner_rejects_mutable_image_aliases(tmp_path: Path, alias: str) -> None:
+    runner = _runner_module()
+    source = (ROOT / "tests/vm/matrix.toml").read_text(encoding="utf-8")
+    # Keep a valid checksum while redirecting its URL to a moving image.
+    date = re.search(r"/jammy/(\d{8})/", source)
+    assert date is not None
+    matrix = tmp_path / "matrix.toml"
+    matrix.write_text(source.replace(f"/jammy/{date[1]}/", f"/jammy/{alias}/"))
+
+    with pytest.raises(ValueError, match="invalid VM image lock"):
+        runner.load_matrix(matrix)
+
+
 def test_vm_result_requires_every_recovery_operation() -> None:
     runner = _runner_module()
     result = {

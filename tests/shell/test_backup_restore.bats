@@ -120,6 +120,19 @@ run_cli() {
   run bash "${REPOSITORY_ROOT}/installer/bin/ezopenpn" "$@"
 }
 
+@test "offline snapshot starts only a temporary control command without its dependencies" {
+  unset TEST_BACKUP_CONTROL_BIN
+  source "${REPOSITORY_ROOT}/installer/lib/backup.sh"
+  _backup_compose() { printf '%s\n' "$*"; }
+  BACKUP_CONTROL_OFFLINE=1
+
+  run _backup_control_command backup-database --output /var/lib/ezopenpn/snapshot.sqlite3
+
+  [ "$status" -eq 0 ]
+  [[ "$output" == 'run --rm --no-deps -T control python -m ezopenpn.cli '* ]]
+  [[ "$output" == *'backup-database --output /var/lib/ezopenpn/snapshot.sqlite3' ]]
+}
+
 newest_archive() {
   find "$TEST_ROOT/var/backups/ezopenpn" -maxdepth 1 -type f -name '*.tar.gz' \
     -print | sort | tail -n 1

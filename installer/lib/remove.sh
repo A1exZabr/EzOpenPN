@@ -41,7 +41,7 @@ _remove_managed_services() {
 
 _remove_reinstall_command() {
   printf '%s\n' \
-    'curl -fsSL https://raw.githubusercontent.com/A1exZabr/EzOpenPN/main/installer/install.sh | sudo bash'
+    'curl -fsSL https://git.alexzabrodin.pro/ezopenpn/releases/latest/download/install.sh | sudo bash'
 }
 
 remove_uninstall() {

@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from contextlib import suppress
-from typing import Protocol
+from functools import wraps
+from threading import RLock
+from typing import Concatenate, Protocol
 from uuid import UUID
 
 from nacl.exceptions import CryptoError
@@ -27,6 +30,17 @@ from ezopenpn.security.secrets import SecretCipher
 _XRAY_ADD_FAILED = "xray_add_failed"
 _RUNTIME_REVOKE_INCOMPLETE = "runtime_revoke_incomplete"
 _PROFILE_MATERIAL_INVALID = "profile_material_invalid"
+
+
+def _serialized[**P, R](
+    operation: Callable[Concatenate[ProfileCoordinator, P], R],
+) -> Callable[Concatenate[ProfileCoordinator, P], R]:
+    @wraps(operation)
+    def run(self: ProfileCoordinator, /, *args: P.args, **kwargs: P.kwargs) -> R:
+        with self._lock:
+            return operation(self, *args, **kwargs)
+
+    return run
 
 
 class XrayClient(Protocol):
@@ -110,6 +124,9 @@ class ProfileCoordinator:
         self._profiles = profile_service or ProfileService(repository, cipher)
         self._reconciler = reconciler
         self._runtime_health = runtime_health
+        # Mutations and the periodic reconciliation share the same runtime.
+        # Recovery and delete -> disable re-enter this lock on the same thread.
+        self._lock = RLock()
 
     def _user_id(self, record: ProfileRecord) -> UUID:
         if record.wrapped_profile_key is None:
@@ -147,6 +164,7 @@ class ProfileCoordinator:
         except Exception:
             return
 
+    @_serialized
     def create(self, name: str) -> ProfileResult:
         pending = self._profiles.create(name)
         record = self._repository.get(pending.profile_id)
@@ -172,6 +190,7 @@ class ProfileCoordinator:
             current = self._repository.set_state(profile_id, ProfileState.ERROR)
         return self._repository.set_state(current.profile_id, ProfileState.DISABLED)
 
+    @_serialized
     def disable(self, profile_id: UUID) -> ProfileResult:
         disabled = self._prepare_disabled(profile_id)
         incomplete = False
@@ -206,6 +225,7 @@ class ProfileCoordinator:
             raise ProfileRevocationFailed("profile revocation incomplete")
         return _result(self._repository.get(disabled.profile_id))
 
+    @_serialized
     def enable(self, profile_id: UUID) -> ProfileResult:
         current = self._repository.get(profile_id)
         if current.state is ProfileState.ERROR:
@@ -224,6 +244,7 @@ class ProfileCoordinator:
             raise ProfileEnableFailed("profile enable failed") from None
         return _result(active, links=links)
 
+    @_serialized
     def delete(self, profile_id: UUID) -> None:
         try:
             self.disable(profile_id)
@@ -236,6 +257,7 @@ class ProfileCoordinator:
             self._reconcile_after_error()
             raise ProfileDeleteFailed("profile deletion failed") from None
 
+    @_serialized
     def reconcile(self) -> ReconcileResult:
         result = (
             self._reconciler.run()

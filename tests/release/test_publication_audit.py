@@ -17,7 +17,7 @@ def test_publication_audit_covers_every_release_boundary() -> None:
         "gitleaks git",
         "reuse lint",
         "git verify-tag",
-        "verify_release.sh --signed",
+        "verify_release.sh --published",
         "sha_pinning_required",
         "required_status_checks",
         "CI",

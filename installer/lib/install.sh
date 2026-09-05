@@ -814,6 +814,19 @@ _run_production_install() {
   rm -f -- "${EZOPENPN_STATE_ROOT:-/var/lib/ezopenpn}/operations/admin-login"
 }
 
+_installer_update_existing() (
+  # Isolate the maintenance libraries from fresh-install globals. The updater
+  # owns one operation lock through resume, backup, update and final status.
+  local libraries="${EZOPENPN_BUNDLE_ROOT}/installer/lib"
+  # shellcheck disable=SC1091
+  source "$libraries/diagnostics.sh"
+  # shellcheck disable=SC1091
+  source "$libraries/backup.sh"
+  # shellcheck disable=SC1091
+  source "$libraries/upgrade.sh"
+  upgrade_run install
+)
+
 installer_main() {
   _install_recommendation
   _parse_install_arguments "$@" || return
@@ -824,6 +837,13 @@ installer_main() {
 
   require_root || return
   require_tty || return
+  if [[ -e "${EZOPENPN_STATE_ROOT:-/var/lib/ezopenpn}/install.json" || \
+    -L "${EZOPENPN_STATE_ROOT:-/var/lib/ezopenpn}/install.json" ]]; then
+    # Existing installations use the backup-backed update transaction, never
+    # the fresh-install rollback that removes the managed stack.
+    _installer_update_existing
+    return $?
+  fi
   acquire_operation_lock install || return
   INSTALL_RESUME_PHASE="$(_install_resume_phase 2>/dev/null || true)"
   if [[ -f "$(operation_checkpoint_path)" && -z "$INSTALL_RESUME_PHASE" ]]; then

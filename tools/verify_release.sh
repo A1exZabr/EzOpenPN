@@ -3,9 +3,32 @@
 set -Eeuo pipefail
 
 usage() {
-  printf '%s\n' 'usage: tools/verify_release.sh [--signed] RELEASE_DIRECTORY' >&2
+  printf '%s\n' \
+    'usage: tools/verify_release.sh [--signed] RELEASE_DIRECTORY' \
+    '       tools/verify_release.sh --published vMAJOR.MINOR.PATCH COMMIT_SHA' >&2
   exit 2
 }
+
+if [[ "${1:-}" == --published ]]; then
+  [[ $# -eq 3 && "$2" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ && "$3" =~ ^[0-9a-f]{40}$ ]] || usage
+  version="$2"
+  commit="$3"
+  published_root="$(mktemp -d "${TMPDIR:-/tmp}/ezopenpn-published.XXXXXXXX")"
+  trap 'case "$published_root" in "${TMPDIR:-/tmp}"/ezopenpn-published.*) rm -rf -- "$published_root" ;; esac' EXIT
+  base_url="https://git.alexzabrodin.pro/ezopenpn/releases/download/${version}"
+  for asset in install.sh ezopenpn-bundle.tar.gz SHA256SUMS \
+    ezopenpn-bundle.sigstore.json SHA256SUMS.sigstore.json ezopenpn-bundle.spdx.json; do
+    curl --proto '=https' --tlsv1.2 -fsSL --connect-timeout 10 --max-time 120 \
+      "${base_url}/${asset}" -o "${published_root}/${asset}"
+  done
+  metadata="$(bash "${BASH_SOURCE[0]}" --signed "$published_root")"
+  if [[ "$(sed -n '1,2p' <<<"$metadata")" != "${version}"$'\n'"${commit}" ]]; then
+    printf '%s\n' 'published release does not match the requested tag and commit' >&2
+    exit 1
+  fi
+  printf 'Published release %s verified for commit %s.\n' "$version" "$commit"
+  exit 0
+fi
 
 signed=0
 if [[ "${1:-}" == --signed ]]; then
@@ -144,7 +167,10 @@ if (( signed == 1 )); then
       exit 1
     }
   done
-  readarray -t release_metadata < <(python3 - "$release_directory/ezopenpn-bundle.tar.gz" <<'PY'
+  release_metadata=()
+  while IFS= read -r field; do
+    release_metadata+=("$field")
+  done < <(python3 - "$release_directory/ezopenpn-bundle.tar.gz" <<'PY'
 import json
 import sys
 import tarfile

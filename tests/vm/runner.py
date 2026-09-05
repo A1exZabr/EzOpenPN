@@ -91,6 +91,7 @@ def load_matrix(path: Path = MATRIX_PATH) -> dict[str, ImageLock]:
         checksum_length = 64 if image.manifest_algorithm == "sha256" else 128
         if (
             not image.url.startswith("https://")
+            or {"current", "latest", "daily"}.intersection(image.url.split("/"))
             or not image.url.endswith(image.filename)
             or SHA256.fullmatch(image.sha256) is None
             or image.manifest_algorithm not in {"sha256", "sha512"}
@@ -509,6 +510,7 @@ def _install_command() -> str:
         "TEST_PUBLIC_IP_B": LAB_ADDRESS,
         "TEST_IP_ADDR_OUTPUT": f"2: lo inet {LAB_ADDRESS}/32 scope global lo",
         "EZOPENPN_BUNDLE_ROOT": f"{REMOTE_ROOT}/release",
+        "TEST_UPGRADE_BUNDLE_ROOT": f"{REMOTE_ROOT}/release",
     }
     environment = " ".join(
         f"{name}={shlex.quote(value)}" for name, value in values.items()

@@ -1,8 +1,12 @@
 from __future__ import annotations
 
 import json
+import re
 import subprocess
+import sys
 from pathlib import Path
+
+import pytest
 
 ROOT = Path(__file__).resolve().parents[2]
 SCRIPT = ROOT / "tools/publication_audit.sh"
@@ -52,9 +56,43 @@ def test_local_audit_reports_current_missing_evidence_without_crashing() -> None
     assert result.stderr == ""
 
 
-def test_publication_report_keeps_repository_private_while_evidence_is_missing() -> None:
-    report = (ROOT / "docs/releases/publication-report.md").read_text(encoding="utf-8")
-    assert "Итог: НЕ ГОТОВ К ПУБЛИКАЦИИ" in report
-    assert "Репозиторий остаётся приватным" in report
-    assert "external_evidence_missing" in report
-    assert "branch_protection_deferred_by_private_plan" in report
+@pytest.mark.parametrize(
+    ("phase", "visibility", "accepted"),
+    [
+        ("private", "private", True),
+        ("private", "public", False),
+        ("public", "public", True),
+        ("public", "private", False),
+        ("public", "internal", False),
+    ],
+)
+def test_metadata_audit_enforces_visibility_for_selected_phase(
+    tmp_path: Path, phase: str, visibility: str, accepted: bool
+) -> None:
+    # Execute the actual embedded metadata checker with local API response data.
+    source = SCRIPT.read_text(encoding="utf-8")
+    match = re.search(r"<<'PY' >\"\$audit_root/metadata-results\"\n(.*?)\nPY\n", source, re.S)
+    assert match is not None
+    metadata = tmp_path / "repository.json"
+    metadata.write_text(
+        json.dumps(
+            {
+                "visibility": visibility,
+                "fork": False,
+                "default_branch": "main",
+                "archived": False,
+                "disabled": False,
+                "description": "Самостоятельный сервер защищённых подключений",
+            }
+        ),
+        encoding="utf-8",
+    )
+    result = subprocess.run(
+        [sys.executable, "-", phase, str(metadata)],
+        input=match.group(1),
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    assert result.stderr == ""
+    assert result.stdout == ("" if accepted else "blocker:repository_visibility_invalid\n")

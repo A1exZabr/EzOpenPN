@@ -156,10 +156,10 @@ else
 import json
 import sys
 
-_phase, path = sys.argv[1:]
+phase, path = sys.argv[1:]
 data = json.load(open(path, encoding="utf-8"))
 checks = (
-    (data.get("visibility") == "private", "repository_visibility_invalid"),
+    (data.get("visibility") == phase, "repository_visibility_invalid"),
     (data.get("fork") is False, "repository_is_fork"),
     (data.get("default_branch") == "main", "default_branch_invalid"),
     (data.get("archived") is False, "repository_archived"),
@@ -278,7 +278,7 @@ PY
     add_blocker signed_release_tag_missing
   fi
 
-  # GitHub is the private CI mirror; users obtain releases from Forgejo.
+  # GitHub hosts sources and CI; the installer also needs anonymous Forgejo assets.
   if command -v cosign >/dev/null 2>&1; then
     if ! bash tools/verify_release.sh --published "$release_tag" "$head_commit" \
       >/dev/null 2>&1; then

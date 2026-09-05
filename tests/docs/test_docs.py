@@ -11,13 +11,17 @@ PUBLIC_DOCUMENTS = (
     ROOT / "docs/recovery.md",
     ROOT / "docs/troubleshooting.md",
     ROOT / "docs/security.md",
+    ROOT / "docs/ssh-security.md",
+    ROOT / "docs/server-migration.md",
     ROOT / "docs/compatibility.md",
     ROOT / "docs/architecture.md",
     ROOT / "docs/releases/release-checklist.md",
+    ROOT / "docs/releases/v0.1.9.md",
 )
 INSTALL_COMMAND = (
-    "curl -fsSL https://git.alexzabrodin.pro/ezopenpn/releases/latest/download/"
-    "install.sh | sudo bash"
+    "curl -fsSL https://git.alexzabrodin.pro/ezopenpn/releases/download/v0.1.9/"
+    "install.sh | env EZOPENPN_EXPECTED_VERSION=v0.1.9 "
+    "EZOPENPN_RELEASE_BASE_URL=https://git.alexzabrodin.pro/ezopenpn/releases/download/v0.1.9 bash"
 )
 RESET_COMMAND = "sudo ezopenpn admin reset-password"
 def _text(path: Path) -> str:
@@ -44,7 +48,9 @@ def test_readme_starts_with_clean_server_recommendation() -> None:
 
 def test_install_and_reset_commands_have_one_canonical_value() -> None:
     combined = "\n".join(_text(path) for path in PUBLIC_DOCUMENTS)
-    install_commands = set(re.findall(r"curl -fsSL https://\S+install\.sh \| sudo bash", combined))
+    install_commands = set(
+        re.findall(r"^curl -fsSL https://[^\n]+install\.sh \| [^\n]+$", combined, re.M)
+    )
     reset_commands = set(re.findall(r"sudo ezopenpn admin reset-password", combined))
     assert install_commands == {INSTALL_COMMAND}
     assert reset_commands == {RESET_COMMAND}

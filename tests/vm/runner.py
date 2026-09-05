@@ -592,7 +592,9 @@ def _run_operations(
         port,
         install_command,
         label="rerun",
-        interactions=(("Введите LAB: ", "LAB"),),
+        # A preserved installation reuses its certificate and administrator.
+        # Only the first installation asks for laboratory mode confirmation.
+        interactions=(),
         timeout=1800,
         secrets_to_redact=redactions,
     )

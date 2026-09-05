@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: Annotated tag in vMAJOR.MINOR.PATCH form
+        description: Signed tag in vMAJOR.MINOR.PATCH form
         required: true
         type: string
       images_run_id:
@@ -36,7 +36,7 @@ jobs:
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
         with:
           python-version: "3.12.11"
-      - name: Bind the annotated tag to the source commit
+      - name: Verify signed immutable source tag
         env:
           RELEASE_TAG: ${{ inputs.tag }}
         run: |
@@ -44,6 +44,8 @@ jobs:
           test "$GITHUB_REF" = "refs/tags/$RELEASE_TAG"
           test "$(git cat-file -t "refs/tags/$RELEASE_TAG")" = tag
           test "$(git rev-parse "$RELEASE_TAG^{commit}")" = "$GITHUB_SHA"
+          git config --local gpg.ssh.allowedSignersFile .github/release-allowed-signers
+          git verify-tag "$RELEASE_TAG"
       - name: Verify required source checks
         env:
           GH_TOKEN: ${{ github.token }}

@@ -48,6 +48,7 @@ jobs:
           test "$GITHUB_REF" = "refs/tags/$RELEASE_TAG"
           test "$(git cat-file -t "refs/tags/$RELEASE_TAG")" = tag
           test "$(git rev-parse "$RELEASE_TAG^{commit}")" = "$GITHUB_SHA"
+          git config --local gpg.ssh.allowedSignersFile .github/release-allowed-signers
           git verify-tag "$RELEASE_TAG"
       - name: Verify required source checks
         env:

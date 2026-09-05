@@ -270,7 +270,9 @@ PY
   if git show-ref --verify --quiet "refs/tags/$release_tag" \
     && [[ "$(git cat-file -t "refs/tags/$release_tag" 2>/dev/null || true)" == tag ]] \
     && [[ "$(git rev-parse "$release_tag^{commit}" 2>/dev/null || true)" == "$head_commit" ]] \
-    && git verify-tag "$release_tag" >/dev/null 2>&1; then
+    && GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=gpg.ssh.allowedSignersFile \
+      GIT_CONFIG_VALUE_0="$repository_root/.github/release-allowed-signers" \
+      git verify-tag "$release_tag" >/dev/null 2>&1; then
     :
   else
     add_blocker signed_release_tag_missing

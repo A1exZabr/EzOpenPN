@@ -546,6 +546,14 @@ def _run_operations(
     _ssh(
         key,
         port,
+        "awk '/^MemTotal:/ {ram=$2} /^SwapTotal:/ {swap=$2; seen_swap=1} "
+        "END {exit !(ram >= 524288 && ram < 1048576 && seen_swap && swap == 0)}' "
+        "/proc/meminfo",
+        label="verify a one GiB guest without swap",
+    )
+    _ssh(
+        key,
+        port,
         f"mkdir -m 0700 -p {REMOTE_ROOT}",
         label="prepare guest workspace",
     )
@@ -798,7 +806,7 @@ def run_system(system: str, bundle: Path, output: Path, cache: Path) -> None:
             "-smp",
             "2",
             "-m",
-            "2048",
+            "1024",
             "-drive",
             f"file={overlay},if=virtio,format=qcow2,cache=unsafe",
             "-drive",

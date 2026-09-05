@@ -30,14 +30,41 @@ setup() {
   assert_preflight_ok
 }
 
-@test "less than one gibibyte of total memory fails resources" {
-  export TEST_MEMORY_KIB=786432
-  export TEST_SWAP_KIB=131071
+@test "a one gigabyte VPS with 891 MiB usable RAM and no swap passes resources" {
+  export TEST_MEMORY_KIB=912384
+  export TEST_SWAP_KIB=0
+
+  assert_preflight_ok
+}
+
+@test "512 MiB RAM without swap and exactly four GiB disk passes resources" {
+  export TEST_MEMORY_KIB=524288
+  export TEST_SWAP_KIB=0
+  export TEST_DISK_KIB=4194304
+
+  assert_preflight_ok
+}
+
+@test "swap does not compensate for less than 512 MiB physical RAM" {
+  export TEST_MEMORY_KIB=524287
+  export TEST_SWAP_KIB=2097152
 
   run run_preflight
 
   [ "$status" -eq 23 ]
   [[ "$output" == *"E_PREFLIGHT_RESOURCES"* ]]
+  [ ! -e "${TEST_ROOT}/etc/ezopenpn" ]
+}
+
+@test "less than four GiB free disk still fails resources" {
+  export TEST_MEMORY_KIB=524288
+  export TEST_DISK_KIB=4194303
+
+  run run_preflight
+
+  [ "$status" -eq 23 ]
+  [[ "$output" == *"E_PREFLIGHT_RESOURCES"* ]]
+  [ ! -e "${TEST_ROOT}/etc/ezopenpn" ]
 }
 
 assert_preflight_ok() {

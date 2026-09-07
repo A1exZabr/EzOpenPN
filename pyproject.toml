@@ -11,7 +11,7 @@ dependencies = [
   "grpcio==1.83.1",
   "httpx==0.28.1",
   "jinja2==3.1.6",
-  "protobuf==7.36.0",
+  "protobuf==7.36.1",
   "pydantic-settings==2.15.0",
   "pynacl==1.6.2",
   "python-multipart==0.0.32",
@@ -31,7 +31,7 @@ dev = [
   "pytest-asyncio==1.4.0",
   "pytest-cov==7.1.0",
   "respx==0.23.1",
-  "ruff==0.16.5",
+  "ruff==0.16.6",
   "types-grpcio==1.83.0.20260730",
 ]
 

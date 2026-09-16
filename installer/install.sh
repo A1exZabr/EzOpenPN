@@ -22,6 +22,21 @@ _valid_release_tag() {
   [[ "$1" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]
 }
 
+_github_stable_version() {
+  python3 -c '
+import json, re, sys
+try:
+    release = json.load(sys.stdin)
+    version = release["tag_name"]
+    if (not isinstance(version, str) or re.fullmatch(r"v[0-9]+\.[0-9]+\.[0-9]+", version) is None
+            or release["draft"] is not False or release["prerelease"] is not False):
+        raise ValueError()
+except (ValueError, KeyError, TypeError):
+    raise SystemExit(1)
+print(version)
+'
+}
+
 _resolve_release_version() {
   if _release_test_mode; then
     if ! _valid_release_tag "$EZOPENPN_EXPECTED_VERSION"; then
@@ -39,7 +54,7 @@ _resolve_release_version() {
   local version
   version="$(curl --proto '=https' --tlsv1.2 -fsSL \
     --connect-timeout 10 --max-time 30 \
-    https://git.alexzabrodin.pro/ezopenpn/releases/latest/version)" || {
+    https://api.github.com/repos/A1exZabr/EzOpenPN/releases/latest | _github_stable_version)" || {
       _release_error "не удалось определить текущую стабильную версию"
       return
     }
@@ -55,7 +70,7 @@ _release_base_url() {
   if _release_test_mode; then
     printf '%s\n' "${EZOPENPN_RELEASE_BASE_URL%/}"
   else
-    printf 'https://git.alexzabrodin.pro/ezopenpn/releases/download/%s\n' "$version"
+    printf 'https://github.com/A1exZabr/EzOpenPN/releases/download/%s\n' "$version"
   fi
 }
 

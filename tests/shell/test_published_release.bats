@@ -22,11 +22,14 @@ setup() {
   export PATH="$BATS_TEST_TMPDIR/bin:$PATH"
 }
 
-@test "published release checks the anonymous Forgejo assets and their commit" {
+@test "published release checks anonymous GitHub assets and their commit" {
   run bash "$REPOSITORY_ROOT/tools/verify_release.sh" --published v0.1.0 "$TEST_PUBLISHED_COMMIT"
 
   [ "$status" -eq 0 ]
   [ "$(wc -l <"$TEST_PUBLISHED_REQUESTS" | tr -d ' ')" = 6 ]
+  while IFS= read -r request; do
+    [[ "$request" == https://github.com/A1exZabr/EzOpenPN/releases/download/v0.1.0/* ]]
+  done <"$TEST_PUBLISHED_REQUESTS"
   [[ "$output" == *"Published release v0.1.0 verified"* ]]
 }
 

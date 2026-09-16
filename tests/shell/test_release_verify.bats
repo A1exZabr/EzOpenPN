@@ -183,7 +183,7 @@ prepare_rich_manifest_fixture() {
   [ "$(wc -l <"${EZOPENPN_TEST_EXECUTED_PATH}")" -eq 1 ]
 }
 
-@test "production release discovery uses the public Forgejo distribution endpoint" {
+@test "production release discovery uses GitHub stable releases without authentication" {
   unset EZOPENPN_RELEASE_BASE_URL EZOPENPN_EXPECTED_VERSION
   local fake_bin="${BATS_TEST_TMPDIR}/fake-bin"
   local curl_arguments="${BATS_TEST_TMPDIR}/curl-arguments"
@@ -191,7 +191,7 @@ prepare_rich_manifest_fixture() {
   printf '%s\n' \
     '#!/usr/bin/env bash' \
     'printf "%s\n" "$@" >"$EZOPENPN_TEST_CURL_ARGUMENTS"' \
-    'printf "%s\n" v0.1.0' \
+    'printf "%s\n" '\''{"tag_name":"v0.1.0","draft":false,"prerelease":false}'\''' \
     >"${fake_bin}/curl"
   chmod 0755 "${fake_bin}/curl"
 
@@ -203,8 +203,8 @@ prepare_rich_manifest_fixture() {
       _ "$REPOSITORY_ROOT"
 
   [ "$status" -eq 0 ]
-  [ "$output" = "v0.1.0|https://git.alexzabrodin.pro/ezopenpn/releases/download/v0.1.0" ]
+  [ "$output" = "v0.1.0|https://github.com/A1exZabr/EzOpenPN/releases/download/v0.1.0" ]
   grep -Fxq \
-    'https://git.alexzabrodin.pro/ezopenpn/releases/latest/version' \
+    'https://api.github.com/repos/A1exZabr/EzOpenPN/releases/latest' \
     "$curl_arguments"
 }

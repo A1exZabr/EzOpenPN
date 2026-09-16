@@ -8,7 +8,7 @@ while [[ $# -gt 0 ]]; do
     *) shift ;;
   esac
 done
-[[ "$url" == https://git.alexzabrodin.pro/ezopenpn/releases/download/v0.1.0/* ]]
+[[ "$url" == https://github.com/A1exZabr/EzOpenPN/releases/download/v0.1.0/* ]]
 [[ -n "$destination" ]]
 printf '%s\n' "$url" >>"$TEST_PUBLISHED_REQUESTS"
 cp "$TEST_PUBLISHED_ROOT/${url##*/}" "$destination"

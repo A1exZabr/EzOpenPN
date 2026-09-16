@@ -20,7 +20,7 @@ if [[ "${1:-}" == --published || "${1:-}" == --stable ]]; then
   commit="$3"
   published_root="$(mktemp -d "${TMPDIR:-/tmp}/ezopenpn-published.XXXXXXXX")"
   trap 'case "$published_root" in "${TMPDIR:-/tmp}"/ezopenpn-published.*) rm -rf -- "$published_root" ;; esac' EXIT
-  base_url="https://git.alexzabrodin.pro/ezopenpn/releases/download/${version}"
+  base_url="https://github.com/A1exZabr/EzOpenPN/releases/download/${version}"
   for asset in install.sh ezopenpn-bundle.tar.gz SHA256SUMS \
     ezopenpn-bundle.sigstore.json SHA256SUMS.sigstore.json ezopenpn-bundle.spdx.json; do
     curl --proto '=https' --tlsv1.2 -fsSL --connect-timeout 10 --max-time 120 \
@@ -37,12 +37,15 @@ if [[ "${1:-}" == --published || "${1:-}" == --stable ]]; then
       printf '%s\n' 'published bundle differs from the externally tested candidate' >&2
       exit 1
     fi
-    stable_url="https://git.alexzabrodin.pro/ezopenpn/releases/latest"
+    stable_url="https://github.com/A1exZabr/EzOpenPN/releases/latest"
     curl --proto '=https' --tlsv1.2 -fsSL --connect-timeout 10 --max-time 120 \
-      "$stable_url/version" -o "$published_root/stable-version"
+      https://api.github.com/repos/A1exZabr/EzOpenPN/releases/latest -o "$published_root/stable-version"
     curl --proto '=https' --tlsv1.2 -fsSL --connect-timeout 10 --max-time 120 \
       "$stable_url/download/install.sh" -o "$published_root/stable-install.sh"
-    if [[ "$(<"$published_root/stable-version")" != "$version" ]] \
+    # Reuse the installer's parser; that script is checked separately.
+    # shellcheck source=/dev/null
+    source "$(dirname -- "${BASH_SOURCE[0]}")/../installer/install.sh"
+    if [[ "$(_github_stable_version <"$published_root/stable-version")" != "$version" ]] \
       || ! cmp -s "$published_root/install.sh" "$published_root/stable-install.sh"; then
       printf '%s\n' 'stable installation channel does not match the verified release' >&2
       exit 1

@@ -110,17 +110,7 @@ else
   add_blocker reuse_unavailable
 fi
 
-remote_names="$(git remote 2>/dev/null || true)"
-if [[ "$remote_names" != $'forgejo\ngithub' ]]; then
-  add_blocker remote_set_invalid
-fi
-forgejo_expected="https://git.alexzabrodin.pro/alex/EzOpenPN.git"
 github_expected="git@github.com:A1exZabr/EzOpenPN.git"
-fetch_url="$(git remote get-url forgejo 2>/dev/null || true)"
-push_url="$(git remote get-url --push forgejo 2>/dev/null || true)"
-if [[ "$fetch_url" != "$forgejo_expected" || "$push_url" != "$forgejo_expected" ]]; then
-  add_blocker remote_fetch_invalid
-fi
 fetch_url="$(git remote get-url github 2>/dev/null || true)"
 push_url="$(git remote get-url --push github 2>/dev/null || true)"
 if [[ "$fetch_url" != "$github_expected" || "$push_url" != "$github_expected" ]]; then
@@ -298,7 +288,7 @@ PY
     add_blocker signed_release_tag_missing
   fi
 
-  # GitHub hosts sources and CI; the installer also needs anonymous Forgejo assets.
+  # GitHub Releases is the public channel; an optional source mirror is not a gate.
   if command -v cosign >/dev/null 2>&1; then
     expected_bundle="$(python3 - <<'PY' 2>/dev/null
 import json

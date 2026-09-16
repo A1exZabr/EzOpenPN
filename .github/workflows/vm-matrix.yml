@@ -132,8 +132,6 @@ jobs:
         run: bash tools/lock_vm_images.sh --check
       - name: Exercise clean installation and recovery
         env:
-          EZOPENPN_VM_REGISTRY_TOKEN: ${{ github.token }}
-          EZOPENPN_VM_REGISTRY_USER: ${{ github.actor }}
           SYSTEM: ${{ matrix.system }}
         run: |
           python tests/vm/runner.py \

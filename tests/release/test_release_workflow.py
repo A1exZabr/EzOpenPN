@@ -81,3 +81,85 @@ def test_real_release_selection_step_requires_successful_vm_run(tmp_path: Path, 
         assert "candidate_artifact_id=" not in output.read_text()
     assert workflow["jobs"]["draft"]["needs"] == "build"
     assert "build" in workflow["jobs"]["publish"]["needs"]
+
+
+@pytest.mark.parametrize("failure", ["none", "published", "stable", "promote"])
+def test_github_promotion_checks_public_downloads_and_rolls_back_latest(tmp_path: Path, failure):
+    workflow = yaml.safe_load((ROOT / ".github/workflows/release.yml").read_text())
+    step = next(
+        step for step in workflow["jobs"]["publish"]["steps"] if step.get("id") == "promotion"
+    )
+    gh = tmp_path / "gh"
+    gh.write_text(
+        "#!/usr/bin/env python3\nimport json,os,sys\n"
+        "args=sys.argv[1:]\n"
+        "if args[:2]==['release','list']: print('v0.1.8')\n"
+        "elif args[:2]==['release','edit']:\n"
+        " with open(os.environ['PROMOTION_LOG'],'a') as f: f.write(json.dumps(args)+'\\n')\n"
+        " if '--prerelease=false' in args and os.environ['FAILURE']=='promote':\n"
+        "  raise SystemExit(1)\n"
+        "else: raise SystemExit(2)\n"
+    )
+    gh.chmod(0o755)
+    verifier = """
+bash() {
+  test "$1" = tools/verify_release.sh || return 2
+  printf '%s\n' "$2" >> "$PROMOTION_LOG"
+  test "$2" != "--$FAILURE"
+}
+"""
+    log = tmp_path / "log"
+    result = subprocess.run(
+        ["bash", "-e", "-o", "pipefail", "-c", verifier + step["run"]],
+        cwd=ROOT,
+        env=os.environ
+        | {
+            "PATH": f"{tmp_path}:{os.environ['PATH']}",
+            "PROMOTION_LOG": str(log),
+            "FAILURE": failure,
+            "RELEASE_TAG": "v0.1.10",
+            "GITHUB_SHA": COMMIT,
+            "EXPECTED_BUNDLE_SHA256": "b" * 64,
+        },
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    def edit(tag, *flags):
+        return json.dumps(["release", "edit", tag, "--repo", "A1exZabr/EzOpenPN", *flags])
+
+    expected = [edit("v0.1.10", "--draft=false", "--prerelease", "--latest=false"), "--published"]
+    if failure != "published":
+        expected.append(edit("v0.1.10", "--prerelease=false", "--latest"))
+        if failure != "promote":
+            expected.append("--stable")
+        if failure in {"stable", "promote"}:
+            expected += [
+                edit("v0.1.10", "--prerelease", "--latest=false"),
+                edit("v0.1.8", "--latest"),
+            ]
+    assert log.read_text().splitlines() == expected
+    assert result.returncode == (0 if failure == "none" else 1), result.stderr
+
+
+@pytest.mark.parametrize("prerelease", [True, False])
+def test_release_reuses_preview_without_overwriting_its_assets(tmp_path: Path, prerelease):
+    workflow = yaml.safe_load((ROOT / ".github/workflows/release.yml").read_text())
+    step = next(step for step in workflow["jobs"]["draft"]["steps"] if step.get("id") == "draft")
+    gh = tmp_path / "gh"
+    gh.write_text(
+        "#!/usr/bin/env python3\nimport json,sys\n"
+        "assert sys.argv[1:3]==['release','view']\n"
+        f"print(json.dumps({{'isDraft':False,'isPrerelease':{prerelease!r},'tagName':'v0.1.10'}}))\n"
+    )
+    gh.chmod(0o755)
+    result = subprocess.run(
+        ["bash", "-e", "-o", "pipefail", "-c", step["run"]],
+        cwd=ROOT,
+        env=os.environ | {"PATH": f"{tmp_path}:{os.environ['PATH']}", "RELEASE_TAG": "v0.1.10"},
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == (0 if prerelease else 1), result.stderr

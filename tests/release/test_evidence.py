@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import copy
 import json
+import subprocess
 import sys
 from pathlib import Path
 from typing import Any
@@ -56,9 +57,10 @@ def _transport_revocation() -> dict[str, object]:
 def network_result(network_type: str = "fixed") -> dict[str, Any]:
     return {
         "evidence_kind": "network",
-        "schema_version": 1,
+        "schema_version": 2,
         "recorded_at": "2026-08-31T10:00:00Z",
         "application_version": "v0.1.0",
+        "bundle_sha256": "a" * 64,
         "usage_region": "RU",
         "network_type": network_type,
         "client": {"name": "Fixture Client", "version": "1.2.3"},
@@ -115,9 +117,10 @@ def client_result() -> dict[str, Any]:
         )
     return {
         "evidence_kind": "clients",
-        "schema_version": 1,
+        "schema_version": 2,
         "recorded_at": "2026-08-31T11:00:00Z",
         "application_version": "v0.1.0",
+        "bundle_sha256": "a" * 64,
         "usage_region": "RU",
         "clients": clients,
         "passed": True,
@@ -213,6 +216,48 @@ def test_release_requires_matching_version_and_region() -> None:
     )
 
 
+def test_release_rejects_evidence_from_another_build_of_the_same_version() -> None:
+    mobile = network_result("mobile")
+    mobile["bundle_sha256"] = "b" * 64
+    assert (
+        validate_release_evidence([network_result(), mobile], client_result()).code
+        == "evidence_scope_mismatch"
+    )
+
+
+@pytest.mark.parametrize(
+    ("version", "digest", "accepted"),
+    [("v0.1.0", "a" * 64, True), ("v0.1.9", "a" * 64, False), ("v0.1.0", "b" * 64, False)],
+)
+def test_release_cli_binds_evidence_to_the_exact_candidate(
+    tmp_path: Path, version: str, digest: str, accepted: bool
+) -> None:
+    for name, value in (
+        ("fixed", network_result()),
+        ("mobile", network_result("mobile")),
+        ("clients", client_result()),
+    ):
+        _write_canonical(tmp_path / f"{name}.json", value)
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(RELEASE_TEST_ROOT / "validate_evidence.py"),
+            str(tmp_path),
+            "--expected-version",
+            version,
+            "--expected-bundle-sha256",
+            digest,
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == (0 if accepted else 1), result.stdout + result.stderr
+    assert json.loads(result.stdout)["code"] == (
+        "ok" if accepted else "evidence_candidate_mismatch"
+    )
+
+
 def _write_canonical(path: Path, value: object) -> None:
     path.write_text(
         json.dumps(value, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
@@ -274,7 +319,7 @@ def test_evidence_workflow_is_manual_and_commit_bound() -> None:
     assert "workflow_dispatch:" in workflow
     assert "\n  push:" not in workflow
     assert "source_commit:" in workflow
-    assert "validate_evidence.py docs/releases/evidence" in workflow
+    assert "validate_evidence.py release-evidence" in workflow
     assert "release-evidence-${{ steps.source.outputs.commit }}" in workflow
 
 
@@ -283,4 +328,4 @@ def test_published_schemas_are_strict_and_match_schema_version() -> None:
         schema = json.loads((Path("docs/releases") / name).read_text(encoding="utf-8"))
         assert schema["$schema"] == "https://json-schema.org/draft/2020-12/schema"
         assert schema["additionalProperties"] is False
-        assert schema["properties"]["schema_version"]["const"] == 1
+        assert schema["properties"]["schema_version"]["const"] == 2

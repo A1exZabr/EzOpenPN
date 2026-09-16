@@ -5,12 +5,17 @@ set -Eeuo pipefail
 usage() {
   printf '%s\n' \
     'usage: tools/verify_release.sh [--signed] RELEASE_DIRECTORY' \
-    '       tools/verify_release.sh --published vMAJOR.MINOR.PATCH COMMIT_SHA' >&2
+    '       tools/verify_release.sh --published vMAJOR.MINOR.PATCH COMMIT_SHA' \
+    '       tools/verify_release.sh --stable vMAJOR.MINOR.PATCH COMMIT_SHA [EXPECTED_BUNDLE_SHA256]' >&2
   exit 2
 }
 
-if [[ "${1:-}" == --published ]]; then
-  [[ $# -eq 3 && "$2" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ && "$3" =~ ^[0-9a-f]{40}$ ]] || usage
+if [[ "${1:-}" == --published || "${1:-}" == --stable ]]; then
+  channel_mode="$1"
+  [[ ( $# -eq 3 || ( $# -eq 4 && "$channel_mode" == --stable ) ) \
+    && "$2" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ && "$3" =~ ^[0-9a-f]{40}$ ]] || usage
+  expected_bundle="${4:-}"
+  [[ -z "$expected_bundle" || "$expected_bundle" =~ ^[0-9a-f]{64}$ ]] || usage
   version="$2"
   commit="$3"
   published_root="$(mktemp -d "${TMPDIR:-/tmp}/ezopenpn-published.XXXXXXXX")"
@@ -25,6 +30,24 @@ if [[ "${1:-}" == --published ]]; then
   if [[ "$(sed -n '1,2p' <<<"$metadata")" != "${version}"$'\n'"${commit}" ]]; then
     printf '%s\n' 'published release does not match the requested tag and commit' >&2
     exit 1
+  fi
+  if [[ "$channel_mode" == --stable ]]; then
+    if [[ -n "$expected_bundle" \
+      && "$(awk '{print $1}' "$published_root/SHA256SUMS")" != "$expected_bundle" ]]; then
+      printf '%s\n' 'published bundle differs from the externally tested candidate' >&2
+      exit 1
+    fi
+    stable_url="https://git.alexzabrodin.pro/ezopenpn/releases/latest"
+    curl --proto '=https' --tlsv1.2 -fsSL --connect-timeout 10 --max-time 120 \
+      "$stable_url/version" -o "$published_root/stable-version"
+    curl --proto '=https' --tlsv1.2 -fsSL --connect-timeout 10 --max-time 120 \
+      "$stable_url/download/install.sh" -o "$published_root/stable-install.sh"
+    if [[ "$(<"$published_root/stable-version")" != "$version" ]] \
+      || ! cmp -s "$published_root/install.sh" "$published_root/stable-install.sh"; then
+      printf '%s\n' 'stable installation channel does not match the verified release' >&2
+      exit 1
+    fi
+    printf 'Stable installation channel %s verified.\n' "$version"
   fi
   printf 'Published release %s verified for commit %s.\n' "$version" "$commit"
   exit 0

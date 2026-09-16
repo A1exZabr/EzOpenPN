@@ -67,9 +67,7 @@ def test_image_workflow_is_manual_and_never_writes_latest() -> None:
 
 
 def test_image_verifier_checks_both_private_registry_attestations() -> None:
-    verifier = (ROOT / "tools/verify_image_attestations.sh").read_text(
-        encoding="utf-8"
-    )
+    verifier = (ROOT / "tools/verify_image_attestations.sh").read_text(encoding="utf-8")
     assert "cosign verify-attestation" in verifier
     assert "--type slsaprovenance1" in verifier
     assert "--type spdxjson" in verifier
@@ -108,10 +106,7 @@ print((Path(os.environ["FAKE_COSIGN_DATA"]) / f"{name}.{kind}.json").read_text()
     fake_cosign.chmod(0o755)
 
     commit = "0123456789abcdef0123456789abcdef01234567"
-    identity = (
-        "https://github.com/A1exZabr/EzOpenPN/.github/workflows/"
-        "images.yml@refs/heads/main"
-    )
+    identity = "https://github.com/A1exZabr/EzOpenPN/.github/workflows/images.yml@refs/heads/main"
     dockerfiles = {
         "cert-sync": "runtime/Dockerfile.cert-sync",
         "control": "control/Dockerfile",
@@ -165,18 +160,14 @@ print((Path(os.environ["FAKE_COSIGN_DATA"]) / f"{name}.{kind}.json").read_text()
             statement = {
                 "_type": "https://in-toto.io/Statement/v1",
                 "predicateType": predicate_type,
-                "subject": [
-                    {"name": subject_reference, "digest": {"sha256": subject_digest}}
-                ],
+                "subject": [{"name": subject_reference, "digest": {"sha256": subject_digest}}],
                 "predicate": predicate,
             }
             payload = base64.b64encode(json.dumps(statement).encode()).decode()
             return json.dumps([{"payload": payload}]) + "\n"
 
         (cosign_data / f"{name}.slsaprovenance1.json").write_text(
-            signed(
-                "https://slsa.dev/provenance/v1", provenance, reference, digest_hex
-            ),
+            signed("https://slsa.dev/provenance/v1", provenance, reference, digest_hex),
             encoding="utf-8",
         )
         (cosign_data / f"{name}.spdxjson.json").write_text(
@@ -223,6 +214,26 @@ print((Path(os.environ["FAKE_COSIGN_DATA"]) / f"{name}.{kind}.json").read_text()
     accepted = subprocess.run(command, env=environment, capture_output=True, text=True)
     assert accepted.returncode == 0, accepted.stderr
     assert "verified 5 signed image(s)" in accepted.stdout
+
+    strict_command = command + ["--run-id", "1", "--run-attempt", "1"]
+    strict = subprocess.run(strict_command, env=environment, capture_output=True, text=True)
+    assert strict.returncode == 0, strict.stderr
+    wrong_run = subprocess.run(
+        command + ["--run-id", "2", "--run-attempt", "1"],
+        env=environment,
+        capture_output=True,
+        text=True,
+    )
+    assert wrong_run.returncode == 1
+    assert "provenance is from another Images run" in wrong_run.stderr
+    wrong_attempt = subprocess.run(
+        command + ["--run-id", "1", "--run-attempt", "2"],
+        env=environment,
+        capture_output=True,
+        text=True,
+    )
+    assert wrong_attempt.returncode == 1
+    assert "provenance is from another Images run" in wrong_attempt.stderr
 
     changed = json.loads((provenance_dir / "control.slsa.json").read_text())
     changed["buildDefinition"]["externalParameters"]["sourceCommit"] = "f" * 40

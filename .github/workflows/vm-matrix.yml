@@ -35,6 +35,7 @@ jobs:
         with:
           python-version: "3.12.11"
       - name: Confirm the successful Images run
+        id: image_input
         env:
           GH_TOKEN: ${{ github.token }}
           IMAGES_RUN_ID: ${{ inputs.images_run_id }}
@@ -43,21 +44,23 @@ jobs:
           [[ "$SOURCE_COMMIT" =~ ^[0-9a-f]{40}$ ]]
           [[ "$IMAGES_RUN_ID" =~ ^[0-9]+$ ]]
           test "$(git rev-parse HEAD)" = "$SOURCE_COMMIT"
-          readarray -t run < <(gh api \
-            "repos/${GITHUB_REPOSITORY}/actions/runs/${IMAGES_RUN_ID}" \
-            --jq '.name,.head_sha,.status,.conclusion')
-          test "${run[0]}" = Images
-          test "${run[1]}" = "$SOURCE_COMMIT"
-          test "${run[2]}" = completed
-          test "${run[3]}" = success
-          gh run download "$IMAGES_RUN_ID" \
-            --name "images-release-${SOURCE_COMMIT}" \
-            --dir image-evidence
+          test "$GITHUB_SHA" = "$SOURCE_COMMIT"
+          bash tools/release_input.sh images "$IMAGES_RUN_ID" "$SOURCE_COMMIT" \
+            "images-release-$SOURCE_COMMIT" images >> "$GITHUB_OUTPUT"
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          artifact-ids: ${{ steps.image_input.outputs.images_artifact_id }}
+          merge-multiple: true
+          path: image-evidence
+          run-id: ${{ inputs.images_run_id }}
+          github-token: ${{ github.token }}
       - name: Verify images and build the bundle
         env:
           GH_TOKEN: ${{ github.token }}
           REGISTRY_TOKEN: ${{ github.token }}
           SOURCE_COMMIT: ${{ inputs.source_commit }}
+          IMAGES_RUN_ID: ${{ inputs.images_run_id }}
+          IMAGES_RUN_ATTEMPT: ${{ steps.image_input.outputs.images_run_attempt }}
         run: |
           python -m pip install --disable-pip-version-check uv==0.12.7
           bash tools/lock_toolchain.sh --install "$RUNNER_TEMP/ezopenpn-tools" cosign
@@ -67,7 +70,8 @@ jobs:
           bash tools/verify_image_attestations.sh \
             --manifest image-evidence/images.release.json \
             --sbom-dir "$GITHUB_WORKSPACE/image-evidence/artifacts/sbom" \
-            --provenance-dir "$GITHUB_WORKSPACE/image-evidence/artifacts/provenance"
+            --provenance-dir "$GITHUB_WORKSPACE/image-evidence/artifacts/provenance" \
+            --run-id "$IMAGES_RUN_ID" --run-attempt "$IMAGES_RUN_ATTEMPT"
           source_epoch="$(git show -s --format=%ct "$SOURCE_COMMIT")"
           SOURCE_DATE_EPOCH="$source_epoch" bash tools/build_release.sh \
             --version v0.1.0 \
@@ -81,6 +85,12 @@ jobs:
           path: dist/vm
           if-no-files-found: error
           retention-days: 7
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: vm-images-${{ inputs.source_commit }}
+          path: image-evidence/images.release.json
+          if-no-files-found: error
+          retention-days: 30
 
   system:
     name: ${{ matrix.system }}

@@ -154,6 +154,10 @@
       "pattern": "^v[0-9]+\\.[0-9]+\\.[0-9]+$",
       "type": "string"
     },
+    "bundle_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "type": "string"
+    },
     "client": {
       "additionalProperties": false,
       "properties": {
@@ -198,7 +202,7 @@
       "$ref": "#/$defs/revocation"
     },
     "schema_version": {
-      "const": 1
+      "const": 2
     },
     "trials": {
       "additionalProperties": false,
@@ -226,6 +230,7 @@
     "schema_version",
     "recorded_at",
     "application_version",
+    "bundle_sha256",
     "usage_region",
     "network_type",
     "client",

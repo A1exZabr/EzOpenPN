@@ -98,10 +98,13 @@ def test_gateway_source_and_security_refresh_are_immutable() -> None:
         assert f"{name}@{version}" in dockerfile
 
 
-def test_runtime_images_use_grpc_with_cve_2026_84304_fixed() -> None:
+def test_runtime_images_use_grpc_with_known_denial_of_service_fixes() -> None:
     for relative in ("runtime/caddy-source.lock", "runtime/xray-source.lock"):
         lock = tomllib.loads((_ROOT / relative).read_text(encoding="utf-8"))
-        assert lock["modules"]["google.golang.org/grpc"] == "v1.83.1"
+        version = lock["modules"]["google.golang.org/grpc"]
+        assert re.fullmatch(r"v[0-9]+\.[0-9]+\.[0-9]+", version)
+        # The 1.83 line needs both CVE-2026-84304 and CVE-2026-84445 fixes.
+        assert tuple(map(int, version.removeprefix("v").split("."))) >= (1, 83, 2)
 
 
 def test_gateway_uses_crypto_with_cve_2026_56854_fixed() -> None:

@@ -71,10 +71,19 @@ jobs:
           python -m pip install --disable-pip-version-check uv==0.12.7
           bash tools/lock_toolchain.sh --install "$RUNNER_TEMP/ezopenpn-tools" cosign syft
           echo "$RUNNER_TEMP/ezopenpn-tools/bin" >> "$GITHUB_PATH"
+      - name: Select the successful immutable Images artifact
+        id: image_input
+        env:
+          GH_TOKEN: ${{ github.token }}
+          IMAGES_RUN_ID: ${{ inputs.images_run_id }}
+        run: |
+          bash tools/release_input.sh images "$IMAGES_RUN_ID" "$GITHUB_SHA" \
+            "images-release-$GITHUB_SHA" images >> "$GITHUB_OUTPUT"
       - name: Download verified image manifest
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
         with:
-          name: images-release-${{ github.sha }}
+          artifact-ids: ${{ steps.image_input.outputs.images_artifact_id }}
+          merge-multiple: true
           path: image-evidence
           run-id: ${{ inputs.images_run_id }}
           github-token: ${{ github.token }}
@@ -82,13 +91,15 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           REGISTRY_TOKEN: ${{ github.token }}
+          IMAGES_RUN_ID: ${{ inputs.images_run_id }}
+          IMAGES_RUN_ATTEMPT: ${{ steps.image_input.outputs.images_run_attempt }}
         run: |
-          [[ "${{ inputs.images_run_id }}" =~ ^[0-9]+$ ]]
           echo "$REGISTRY_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
           bash tools/verify_image_attestations.sh \
             --manifest image-evidence/images.release.json \
             --sbom-dir "$GITHUB_WORKSPACE/image-evidence/artifacts/sbom" \
-            --provenance-dir "$GITHUB_WORKSPACE/image-evidence/artifacts/provenance"
+            --provenance-dir "$GITHUB_WORKSPACE/image-evidence/artifacts/provenance" \
+            --run-id "$IMAGES_RUN_ID" --run-attempt "$IMAGES_RUN_ATTEMPT"
       - name: Bind and verify anonymous Forgejo images
         run: |
           digest_map="$RUNNER_TEMP/forgejo-digests.tsv"
@@ -160,5 +171,12 @@ jobs:
         with:
           name: signed-candidate-${{ inputs.tag }}
           path: dist
+          if-no-files-found: error
+          retention-days: 30
+      - name: Bind candidate to the exact tested images
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: candidate-images-${{ inputs.tag }}
+          path: image-evidence/images.release.json
           if-no-files-found: error
           retention-days: 30

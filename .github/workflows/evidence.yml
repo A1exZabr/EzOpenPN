@@ -4,7 +4,15 @@ on:
   workflow_dispatch:
     inputs:
       source_commit:
-        description: Exact tested source commit containing sanitized evidence
+        description: Exact tested source commit at the signed candidate tag
+        required: true
+        type: string
+      evidence_commit:
+        description: Full later main commit containing the three sanitized results
+        required: true
+        type: string
+      candidate_run_id:
+        description: Successful Candidate release run for the tested bundle
         required: true
         type: string
 
@@ -19,31 +27,74 @@ jobs:
   validate:
     name: Validate external evidence
     runs-on: ubuntu-24.04
+    permissions:
+      actions: read
+      contents: read
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           fetch-depth: 0
           ref: ${{ inputs.source_commit }}
-      - name: Bind evidence to the requested commit
+      - name: Bind evidence to the immutable candidate and main
         id: source
         env:
           SOURCE_COMMIT: ${{ inputs.source_commit }}
+          EVIDENCE_COMMIT: ${{ inputs.evidence_commit }}
         run: |
           [[ "$SOURCE_COMMIT" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$EVIDENCE_COMMIT" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$GITHUB_REF" =~ ^refs/tags/v[0-9]+\.[0-9]+\.[0-9]+$ ]]
           actual="$(git rev-parse HEAD)"
           test "$actual" = "$SOURCE_COMMIT"
-          echo "commit=$actual" >> "$GITHUB_OUTPUT"
-      - name: Validate committed network and client results
-        run: |
-          python3 tests/release/validate_evidence.py docs/releases/evidence
-          python3 tools/content_guard.py docs/releases/evidence
-      - name: Stage only the canonical evidence set
-        run: |
+          test "$GITHUB_SHA" = "$SOURCE_COMMIT"
+          tag="${GITHUB_REF#refs/tags/}"
+          test "$(git cat-file -t "$GITHUB_REF")" = tag
+          test "$(git rev-parse "$GITHUB_REF^{commit}")" = "$SOURCE_COMMIT"
+          git config --local gpg.ssh.allowedSignersFile .github/release-allowed-signers
+          git verify-tag "$tag"
+          git fetch --no-tags origin refs/heads/main:refs/remotes/origin/main
+          git merge-base --is-ancestor "$SOURCE_COMMIT" "$EVIDENCE_COMMIT"
+          git merge-base --is-ancestor "$EVIDENCE_COMMIT" refs/remotes/origin/main
           install -d -m 0755 release-evidence
-          install -m 0644 docs/releases/evidence/fixed.json release-evidence/fixed.json
-          install -m 0644 docs/releases/evidence/mobile.json release-evidence/mobile.json
-          install -m 0644 docs/releases/evidence/clients.json release-evidence/clients.json
-          python3 tests/release/validate_evidence.py release-evidence
+          for file in fixed.json mobile.json clients.json; do
+            path="docs/releases/evidence/$file"
+            test "$(git ls-tree "$EVIDENCE_COMMIT" "$path" | awk '{print $1, $2}')" = '100644 blob'
+            git show "$EVIDENCE_COMMIT:$path" > "release-evidence/$file"
+          done
+          echo "commit=$actual" >> "$GITHUB_OUTPUT"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+      - name: Select the tested candidate
+        id: candidate
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CANDIDATE_RUN_ID: ${{ inputs.candidate_run_id }}
+          TAG: ${{ steps.source.outputs.tag }}
+        run: |
+          bash tools/release_input.sh candidate-release "$CANDIDATE_RUN_ID" "$GITHUB_SHA" \
+            "signed-candidate-$TAG" candidate "$TAG" >> "$GITHUB_OUTPUT"
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          artifact-ids: ${{ steps.candidate.outputs.candidate_artifact_id }}
+          merge-multiple: true
+          path: candidate-assets
+          run-id: ${{ inputs.candidate_run_id }}
+          github-token: ${{ github.token }}
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        with:
+          python-version: "3.12.11"
+      - name: Validate results against the exact signed candidate
+        env:
+          TAG: ${{ steps.source.outputs.tag }}
+        run: |
+          python -m pip install --disable-pip-version-check uv==0.12.7
+          bash tools/lock_toolchain.sh --install "$RUNNER_TEMP/ezopenpn-tools" cosign
+          export PATH="$RUNNER_TEMP/ezopenpn-tools/bin:$PATH"
+          metadata="$(bash tools/verify_release.sh --signed candidate-assets)"
+          test "$(sed -n '1,2p' <<< "$metadata")" = "$TAG"$'\n'"$GITHUB_SHA"
+          digest="$(sha256sum candidate-assets/ezopenpn-bundle.tar.gz | awk '{print $1}')"
+          python3 tests/release/validate_evidence.py release-evidence \
+            --expected-version "$TAG" --expected-bundle-sha256 "$digest"
+          python3 tools/content_guard.py release-evidence
       - name: Upload release-bound evidence
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:

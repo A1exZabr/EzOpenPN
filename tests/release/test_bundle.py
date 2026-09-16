@@ -108,11 +108,12 @@ def test_release_workflow_is_manual_and_evidence_gated() -> None:
     assert "\n  push:" not in workflow
     assert "evidence_run_id:" in workflow
     assert "images_run_id:" in workflow
+    assert "vm_run_id:" in workflow
+    assert "candidate_run_id:" in workflow
     assert "git verify-tag" in workflow
     assert "validate_evidence.py" in workflow
-    assert "validate_evidence.py docs/releases/evidence" in workflow
-    assert '"docs/releases/evidence/$evidence"' in workflow
-    assert '"release-evidence/$evidence"' in workflow
+    assert "validate_evidence.py release-evidence" in workflow
+    assert '--expected-bundle-sha256 "$digest"' in workflow
     assert "--draft" in workflow
     assert "--draft=false" in workflow
     assert workflow.index("verify_release.sh --signed") < workflow.index("--draft=false")

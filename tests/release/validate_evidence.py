@@ -31,6 +31,7 @@ _MAXIMUM_RECONNECT_OBSERVATION_SECONDS = 60.0
 _MAXIMUM_FILE_BYTES = 1024 * 1024
 _UTC_PATTERN = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$")
 _VERSION_PATTERN = re.compile(r"^v\d+\.\d+\.\d+$")
+_SHA256_PATTERN = re.compile(r"[0-9a-f]{64}\Z")
 _CLIENT_VERSION_PATTERN = re.compile(r"^[0-9A-Za-z][0-9A-Za-z._+() -]{0,63}$")
 _REGION_PATTERN = re.compile(r"^[A-Z]{2}$")
 _UUID_PATTERN = re.compile(
@@ -247,6 +248,7 @@ def validate_network_result(value: object) -> ValidationResult:
         "schema_version",
         "recorded_at",
         "application_version",
+        "bundle_sha256",
         "usage_region",
         "network_type",
         "client",
@@ -260,11 +262,13 @@ def validate_network_result(value: object) -> ValidationResult:
     assert isinstance(value, dict)
     if (
         value["evidence_kind"] != "network"
-        or value["schema_version"] != 1
+        or value["schema_version"] != 2
         or isinstance(value["schema_version"], bool)
         or not _timestamp(value["recorded_at"])
         or not isinstance(value["application_version"], str)
         or _VERSION_PATTERN.fullmatch(value["application_version"]) is None
+        or not isinstance(value["bundle_sha256"], str)
+        or _SHA256_PATTERN.fullmatch(value["bundle_sha256"]) is None
         or not isinstance(value["usage_region"], str)
         or _REGION_PATTERN.fullmatch(value["usage_region"]) is None
         or value["network_type"] not in NETWORK_TYPES
@@ -320,6 +324,7 @@ def validate_client_result(value: object) -> ValidationResult:
         "schema_version",
         "recorded_at",
         "application_version",
+        "bundle_sha256",
         "usage_region",
         "clients",
         "passed",
@@ -329,11 +334,13 @@ def validate_client_result(value: object) -> ValidationResult:
     assert isinstance(value, dict)
     if (
         value["evidence_kind"] != "clients"
-        or value["schema_version"] != 1
+        or value["schema_version"] != 2
         or isinstance(value["schema_version"], bool)
         or not _timestamp(value["recorded_at"])
         or not isinstance(value["application_version"], str)
         or _VERSION_PATTERN.fullmatch(value["application_version"]) is None
+        or not isinstance(value["bundle_sha256"], str)
+        or _SHA256_PATTERN.fullmatch(value["bundle_sha256"]) is None
         or not isinstance(value["usage_region"], str)
         or _REGION_PATTERN.fullmatch(value["usage_region"]) is None
         or not isinstance(value["clients"], list)
@@ -393,7 +400,11 @@ def validate_client_result(value: object) -> ValidationResult:
 
 
 def validate_release_evidence(
-    network_results: Sequence[Mapping[str, Any]], client_evidence: object
+    network_results: Sequence[Mapping[str, Any]],
+    client_evidence: object,
+    *,
+    expected_version: str | None = None,
+    expected_bundle_sha256: str | None = None,
 ) -> ValidationResult:
     for network in network_results:
         result = validate_network_result(network)
@@ -410,8 +421,17 @@ def validate_release_evidence(
     versions.add(client_evidence.get("application_version"))
     regions = {network.get("usage_region") for network in network_results}
     regions.add(client_evidence.get("usage_region"))
-    if len(versions) != 1 or len(regions) != 1:
+    bundles = {network.get("bundle_sha256") for network in network_results}
+    bundles.add(client_evidence.get("bundle_sha256"))
+    if len(versions) != 1 or len(regions) != 1 or len(bundles) != 1:
         return _failure("evidence_scope_mismatch")
+    if (
+        expected_version is not None
+        and versions != {expected_version}
+        or expected_bundle_sha256 is not None
+        and bundles != {expected_bundle_sha256}
+    ):
+        return _failure("evidence_candidate_mismatch")
     return _success()
 
 
@@ -457,7 +477,12 @@ def load_json_document(
     return value, _success()
 
 
-def validate_evidence_directory(directory: Path) -> ValidationResult:
+def validate_evidence_directory(
+    directory: Path,
+    *,
+    expected_version: str | None = None,
+    expected_bundle_sha256: str | None = None,
+) -> ValidationResult:
     try:
         metadata = directory.lstat()
     except OSError:
@@ -488,15 +513,37 @@ def validate_evidence_directory(directory: Path) -> ValidationResult:
         return _failure("evidence_file_mismatch")
     if not isinstance(mobile, dict) or mobile.get("network_type") != "mobile":
         return _failure("evidence_file_mismatch")
-    return validate_release_evidence([fixed, mobile], clients)
+    return validate_release_evidence(
+        [fixed, mobile],
+        clients,
+        expected_version=expected_version,
+        expected_bundle_sha256=expected_bundle_sha256,
+    )
 
 
 def main(argv: Sequence[str] | None = None) -> int:
     arguments = list(argv if argv is not None else sys.argv[1:])
-    if len(arguments) != 1:
+    options = dict(zip(arguments[1::2], arguments[2::2], strict=False))
+    if (
+        len(arguments) not in {1, 3, 5}
+        or len(options) != (len(arguments) - 1) // 2
+        or set(options) - {"--expected-version", "--expected-bundle-sha256"}
+        or (
+            "--expected-version" in options
+            and not _VERSION_PATTERN.fullmatch(options["--expected-version"])
+        )
+        or (
+            "--expected-bundle-sha256" in options
+            and not _SHA256_PATTERN.fullmatch(options["--expected-bundle-sha256"])
+        )
+    ):
         print('{"code":"usage","ok":false}')
         return 2
-    result = validate_evidence_directory(Path(arguments[0]))
+    result = validate_evidence_directory(
+        Path(arguments[0]),
+        expected_version=options.get("--expected-version"),
+        expected_bundle_sha256=options.get("--expected-bundle-sha256"),
+    )
     print(json.dumps({"code": result.code, "ok": result.ok}, sort_keys=True))
     return 0 if result.ok else 1
 

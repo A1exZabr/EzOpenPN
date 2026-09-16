@@ -82,6 +82,7 @@ if command -v uv >/dev/null 2>&1; then
     add_blocker history_guard_failed
   fi
   if ! uv run python tests/release/validate_evidence.py docs/releases/evidence \
+    --expected-version "$release_tag" \
     >/dev/null 2>&1; then
     add_blocker external_evidence_missing
   fi
@@ -236,15 +237,16 @@ PY
   fi
 
   head_commit="$(git rev-parse HEAD 2>/dev/null || true)"
+  release_commit="$(git rev-parse --verify "$release_tag^{commit}" 2>/dev/null || printf '%s' "$head_commit")"
   current_branch="$(git branch --show-current 2>/dev/null || true)"
   remote_commit="$(gh api repos/A1exZabr/EzOpenPN/git/ref/heads/main --jq .object.sha 2>/dev/null || true)"
   [[ "$current_branch" == main ]] || add_blocker local_branch_not_main
   [[ -n "$head_commit" && "$head_commit" == "$remote_commit" ]] \
     || add_blocker local_remote_main_mismatch
 
-  if gh run list --repo A1exZabr/EzOpenPN --commit "$head_commit" --limit 100 \
+  if gh run list --repo A1exZabr/EzOpenPN --commit "$release_commit" --limit 100 \
     --json workflowName,status,conclusion,headSha >"$audit_root/runs.json" 2>/dev/null; then
-    python3 - "$head_commit" "$audit_root/runs.json" <<'PY' >"$audit_root/run-results"
+    python3 - "$release_commit" "$audit_root/runs.json" <<'PY' >"$audit_root/run-results"
 import json
 import sys
 
@@ -257,7 +259,9 @@ successful = {
     and run.get("status") == "completed"
     and run.get("conclusion") == "success"
 }
-for workflow in sorted({"CI", "CodeQL", "Images", "VM Matrix", "Evidence"} - successful):
+for workflow in sorted(
+    {"CI", "CodeQL", "Images", "VM Matrix", "Candidate release", "Evidence", "Release"} - successful
+):
     print("workflow_missing:" + workflow.replace(" ", "_").casefold())
 PY
     while IFS= read -r code; do
@@ -267,9 +271,25 @@ PY
     add_blocker workflow_status_unavailable
   fi
 
+  # Verify exact-tag promotion.
+  if gh api "repos/A1exZabr/EzOpenPN/actions/workflows/release.yml/runs?head_sha=$release_commit&event=workflow_dispatch&status=success&per_page=100" \
+    >"$audit_root/promotions.json" 2>/dev/null \
+    && jq -e --arg tag "$release_tag" \
+      '.workflow_runs | map(select(.head_branch == $tag)) | first // error("promotion missing")' \
+      "$audit_root/promotions.json" >"$audit_root/promotion.json" 2>/dev/null \
+    && promotion_id="$(jq -er '.id' "$audit_root/promotion.json" 2>/dev/null)" \
+    && python3 tools/check_workflow_run.py "$audit_root/promotion.json" \
+      --workflow release --commit "$release_commit" --run-id "$promotion_id" --tag "$release_tag" \
+      >/dev/null 2>&1; then
+    :
+  else
+    add_blocker release_workflow_not_verified
+  fi
+  # End promotion check.
+
   if git show-ref --verify --quiet "refs/tags/$release_tag" \
     && [[ "$(git cat-file -t "refs/tags/$release_tag" 2>/dev/null || true)" == tag ]] \
-    && [[ "$(git rev-parse "$release_tag^{commit}" 2>/dev/null || true)" == "$head_commit" ]] \
+    && git merge-base --is-ancestor "$release_commit" "$head_commit" \
     && GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=gpg.ssh.allowedSignersFile \
       GIT_CONFIG_VALUE_0="$repository_root/.github/release-allowed-signers" \
       git verify-tag "$release_tag" >/dev/null 2>&1; then
@@ -280,7 +300,14 @@ PY
 
   # GitHub hosts sources and CI; the installer also needs anonymous Forgejo assets.
   if command -v cosign >/dev/null 2>&1; then
-    if ! bash tools/verify_release.sh --published "$release_tag" "$head_commit" \
+    expected_bundle="$(python3 - <<'PY' 2>/dev/null
+import json
+from pathlib import Path
+print(json.loads(Path("docs/releases/evidence/clients.json").read_text())["bundle_sha256"])
+PY
+)"
+    if [[ ! "$expected_bundle" =~ ^[0-9a-f]{64}$ ]] \
+      || ! bash tools/verify_release.sh --stable "$release_tag" "$release_commit" "$expected_bundle" \
       >/dev/null 2>&1; then
       add_blocker published_release_verification_failed
     fi

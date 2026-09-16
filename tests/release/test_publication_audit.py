@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 import subprocess
 import sys
 from pathlib import Path
 
 import pytest
+from test_workflow_run import COMMIT, run_metadata
 
 ROOT = Path(__file__).resolve().parents[2]
 SCRIPT = ROOT / "tools/publication_audit.sh"
@@ -21,7 +23,7 @@ def test_publication_audit_covers_every_release_boundary() -> None:
         "gitleaks git",
         "reuse lint",
         "git verify-tag",
-        "verify_release.sh --published",
+        "verify_release.sh --stable",
         "sha_pinning_required",
         "required_status_checks",
         "CI",
@@ -96,3 +98,53 @@ def test_metadata_audit_enforces_visibility_for_selected_phase(
     )
     assert result.stderr == ""
     assert result.stdout == ("" if accepted else "blocker:repository_visibility_invalid\n")
+
+
+@pytest.mark.parametrize(
+    ("change", "accepted"),
+    [
+        ({}, True),
+        ({"head_branch": "v0.1.9"}, False),
+        ({"head_sha": "b" * 40}, False),
+        ({"path": ".github/workflows/candidate-release.yml"}, False),
+        ({"conclusion": "failure"}, False),
+        ({"event": "push"}, False),
+    ],
+)
+def test_publication_audit_requires_promotion_of_exact_tag(
+    tmp_path: Path, change: dict, accepted: bool
+) -> None:
+    source = SCRIPT.read_text(encoding="utf-8")
+    match = re.search(
+        r"  # Verify exact-tag promotion\.\n(.*?)\n  # End promotion check\.", source, re.S
+    )
+    assert match is not None
+    payload = (
+        run_metadata()
+        | {
+            "head_branch": "v0.1.10",
+            "path": ".github/workflows/release.yml",
+        }
+        | change
+    )
+    (tmp_path / "runs.json").write_text(json.dumps({"workflow_runs": [payload]}))
+    binary = tmp_path / "gh"
+    binary.write_text('#!/usr/bin/env bash\ncat "$AUDIT_FIXTURE"\n')
+    binary.chmod(0o755)
+    result = subprocess.run(
+        ["bash", "-u", "-o", "pipefail", "-c", 'add_blocker() { echo "$1"; }\n' + match.group(1)],
+        env=os.environ
+        | {
+            "PATH": f"{tmp_path}:{os.environ['PATH']}",
+            "AUDIT_FIXTURE": str(tmp_path / "runs.json"),
+            "repository_root": str(ROOT),
+            "audit_root": str(tmp_path),
+            "release_commit": COMMIT,
+            "release_tag": "v0.1.10",
+        },
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    assert result.stderr == ""
+    assert result.stdout == ("" if accepted else "release_workflow_not_verified\n")

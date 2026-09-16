@@ -6,7 +6,7 @@ umask 077
 usage() {
   printf '%s\n' \
     'usage: tools/verify_image_attestations.sh --fixture MANIFEST' \
-    '       tools/verify_image_attestations.sh --manifest MANIFEST --sbom-dir DIRECTORY --provenance-dir DIRECTORY' >&2
+    '       tools/verify_image_attestations.sh --manifest MANIFEST --sbom-dir DIRECTORY --provenance-dir DIRECTORY [--run-id ID --run-attempt ATTEMPT]' >&2
   exit 2
 }
 
@@ -14,13 +14,21 @@ mode="${1:-}"
 manifest="${2:-}"
 sbom_directory=""
 provenance_directory=""
+expected_run_id=""
+expected_run_attempt=""
 case "$mode" in
   --fixture)
     [[ $# -eq 2 ]] || usage
     ;;
   --manifest)
-    [[ $# -eq 6 && "${3:-}" == --sbom-dir && "${5:-}" == --provenance-dir ]] \
+    [[ ( $# -eq 6 || $# -eq 10 ) && "${3:-}" == --sbom-dir && "${5:-}" == --provenance-dir ]] \
       || usage
+    if [[ $# -eq 10 ]]; then
+      [[ "$7" == --run-id && "$9" == --run-attempt \
+        && "$8" =~ ^[1-9][0-9]*$ && "${10}" =~ ^[1-9][0-9]*$ ]] || usage
+      expected_run_id="$8"
+      expected_run_attempt="${10}"
+    fi
     sbom_directory="${4:-}"
     provenance_directory="${6:-}"
     [[ "$sbom_directory" == /* && -d "$sbom_directory" ]] || {
@@ -179,7 +187,7 @@ PY
     "$provenance_candidate" \
     "$candidate" \
     "$verified_provenance" \
-    "$verified_sbom" <<'PY'
+    "$verified_sbom" "$expected_run_id" "$expected_run_attempt" <<'PY'
 import base64
 import json
 import re
@@ -196,6 +204,8 @@ from pathlib import Path
     sbom_path,
     verified_provenance_path,
     verified_sbom_path,
+    expected_run_id,
+    expected_run_attempt,
 ) = sys.argv[1:]
 digest_hex = digest.removeprefix("sha256:")
 
@@ -269,6 +279,11 @@ if not isinstance(invocation, str) or re.fullmatch(
     invocation,
 ) is None:
     raise SystemExit(f"invalid provenance invocation for {name}")
+if expected_run_id and invocation != (
+    f"https://github.com/A1exZabr/EzOpenPN/actions/runs/{expected_run_id}"
+    f"/attempts/{expected_run_attempt}"
+):
+    raise SystemExit(f"provenance is from another Images run for {name}")
 
 provenance_matches = [
     statement

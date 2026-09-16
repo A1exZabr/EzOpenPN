@@ -250,7 +250,8 @@ jobs:
           bash tools/verify_image_attestations.sh \
             --manifest images.release.json \
             --sbom-dir "$GITHUB_WORKSPACE/artifacts/sbom" \
-            --provenance-dir "$GITHUB_WORKSPACE/artifacts/provenance"
+            --provenance-dir "$GITHUB_WORKSPACE/artifacts/provenance" \
+            --run-id "$GITHUB_RUN_ID" --run-attempt "$GITHUB_RUN_ATTEMPT"
       - name: Upload verified image manifest
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:

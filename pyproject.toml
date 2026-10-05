@@ -5,34 +5,34 @@ description = "Самостоятельный сервер защищённых 
 readme = "README.md"
 requires-python = ">=3.12,<3.13"
 dependencies = [
-  "alembic==1.19.1",
+  "alembic==1.20.0",
   "argon2-cffi==25.1.0",
-  "fastapi==0.141.1",
-  "grpcio==1.83.1",
+  "fastapi==0.142.2",
+  "grpcio==1.84.0",
   "httpx==0.28.1",
   "jinja2==3.1.6",
-  "protobuf==7.36.0",
+  "protobuf==7.36.2",
   "pydantic-settings==2.15.0",
   "pynacl==1.6.2",
   "python-multipart==0.0.32",
   "pyyaml==6.0.3",
   "segno==1.6.6",
-  "sqlalchemy==2.0.52",
-  "uvicorn==0.52.4",
+  "sqlalchemy==2.1.2",
+  "uvicorn==0.54.0",
 ]
 
 [dependency-groups]
 dev = [
   "bandit==1.9.4",
-  "grpcio-tools==1.83.1",
-  "mypy==2.3.1",
+  "grpcio-tools==1.84.0",
+  "mypy==2.4.0",
   "pip-audit==2.10.1",
   "pytest==9.1.1",
   "pytest-asyncio==1.4.0",
   "pytest-cov==7.1.0",
   "respx==0.23.1",
-  "ruff==0.16.5",
-  "types-grpcio==1.83.0.20260730",
+  "ruff==0.16.10",
+  "types-grpcio==1.84.0.20260928",
 ]
 
 [build-system]

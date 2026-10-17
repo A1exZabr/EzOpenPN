@@ -78,6 +78,7 @@ def test_add_user_wraps_vless_account() -> None:
     assert operation.user.account.type == account.DESCRIPTOR.full_name
     assert account.id == "11111111-1111-4111-8111-111111111111"
     assert account.encryption == "none"
+    assert account.flow == "xtls-rprx-vision"
     assert stub.deadlines == [3.0]
 
 

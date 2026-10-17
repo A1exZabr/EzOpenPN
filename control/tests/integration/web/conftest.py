@@ -66,9 +66,7 @@ def web_app(tmp_path: Path):
         database=DatabaseSettings(path=database),
         xray=XraySettings(
             reality_public_key="public-key",
-            reality_server_name="www.example.org",
             reality_short_id="a1b2c3d4e5f60708",
-            xhttp_path="/panel-test",
         ),
     )
     profile_service = ProfileService(profiles, cipher)
@@ -78,9 +76,7 @@ def web_app(tmp_path: Path):
         TransportLinkConfig(
             host=settings.public_ip,
             reality_public_key=settings.xray.reality_public_key,
-            reality_server_name=settings.xray.reality_server_name,
             reality_short_id=settings.xray.reality_short_id,
-            xhttp_path=settings.xray.xhttp_path,
             hysteria_obfs_password="obfs-secret",
         ),
     )

@@ -735,8 +735,7 @@ _install_systemd_and_cli() {
 _prepare_installed_layout() {
   configure_layout || return
   _install_release_files || return
-  configure_runtime_material \
-    "${INSTALL_RELEASE_ROOT}/installer/targets.txt" "$INSTALL_XRAY_IMAGE" || return
+  configure_runtime_material "$INSTALL_XRAY_IMAGE" || return
   render_server_configuration "$INSTALL_PUBLIC_IP" "$INSTALL_RELEASE_ROOT" || return
   _install_stack_environment || return
   _install_laboratory_certificate || return

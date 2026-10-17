@@ -18,15 +18,13 @@ from ezopenpn.profiles.links import (
 )
 
 
-def test_vless_link_contains_required_xhttp_parameters() -> None:
+def test_vless_link_uses_vision_without_sni() -> None:
     link = build_vless_link(
         VlessMaterial(
             user_id=UUID("11111111-1111-4111-8111-111111111111"),
             host=IPv4Address("203.0.113.10"),
             public_key="public-key",
-            server_name="www.example.org",
             short_id="a1b2c3d4e5f60708",
-            path="/r4nd0m",
         ),
         "Телефон",
     )
@@ -37,27 +35,26 @@ def test_vless_link_contains_required_xhttp_parameters() -> None:
     assert parsed.hostname == "203.0.113.10"
     assert parsed.port == 443
     assert unquote(parsed.fragment) == "Телефон"
+    # The address as server name tells clients to omit SNI entirely.
     assert query == {
-        "type": ["xhttp"],
+        "type": ["tcp"],
         "security": ["reality"],
         "encryption": ["none"],
+        "flow": ["xtls-rprx-vision"],
         "pbk": ["public-key"],
         "fp": ["chrome"],
-        "sni": ["www.example.org"],
+        "sni": ["203.0.113.10"],
         "sid": ["a1b2c3d4e5f60708"],
-        "path": ["/r4nd0m"],
-        "mode": ["packet-up"],
     }
     assert [part.split("=", 1)[0] for part in parsed.query.split("&")] == [
         "type",
         "security",
         "encryption",
+        "flow",
         "pbk",
         "fp",
         "sni",
         "sid",
-        "path",
-        "mode",
     ]
 
 

@@ -37,9 +37,7 @@ def test_runtime_factory_loads_configuration_and_secret_files(
                 f'hysteria_obfs_path = "{obfs_secret}"',
                 '[xray]',
                 'reality_public_key = "public-key"',
-                'reality_server_name = "www.example.org"',
                 'reality_short_id = "a1b2c3d4e5f60708"',
-                'xhttp_path = "/runtime-test"',
             )
         )
         + "\n",

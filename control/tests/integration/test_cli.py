@@ -18,9 +18,7 @@ def _config(tmp_path: Path) -> tuple[Path, Path]:
     config.write_text(
         f'[app]\npublic_ip="203.0.113.10"\ndatabase_path="{database}"\n'
         '[xray]\nreality_public_key="public-key"\n'
-        'reality_server_name="www.example.org"\n'
-        'reality_short_id="a1b2c3d4e5f60708"\n'
-        'xhttp_path="/cli-test"\n',
+        'reality_short_id="a1b2c3d4e5f60708"\n',
         encoding="utf-8",
     )
     return config, database

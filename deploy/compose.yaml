@@ -161,6 +161,8 @@ services:
       PUBLIC_IP: "${PUBLIC_IP:?PUBLIC_IP is required}"
     init: true
     mem_limit: 128m
+    # Stub site for Reality; reachable only from the internal networks.
+    expose: ["8443"]
     ports:
       - name: acme-http
         target: 8080

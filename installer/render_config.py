@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import argparse
 import base64
+import hashlib
+import hmac
 import ipaddress
 import json
 import os
@@ -13,13 +15,38 @@ from typing import Any
 
 _MAX_INPUT_BYTES = 64 * 1024
 _BIND_ALL_IPV4 = "0.0.0.0"  # nosec B104
-_HOST_PATTERN = re.compile(
-    r"(?=.{1,253}\Z)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+"
-    r"[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?"
-)
 _KEY_PATTERN = re.compile(r"[A-Za-z0-9_-]{42,44}")
 _SHORT_ID_PATTERN = re.compile(r"[0-9a-f]{16}")
-_PATH_PATTERN = re.compile(r"/[A-Za-z0-9_-]{24}")
+_XRAY_FIELDS = frozenset(
+    {"private_key", "short_id", "fallback_upload", "fallback_download"}
+)
+_NODE_FIELDS = frozenset({"xray_public_key", "xray_short_id"})
+# Material created before v0.2.0 also names an external Reality target and an
+# XHTTP path. They stay on disk so a rollback can still use them, and are
+# ignored by this release.
+_LEGACY_FIELDS = frozenset({"target", "server_name", "xhttp_path"})
+# Reality hands every connection that is not ours to the gateway stub site.
+_REALITY_TARGET = "gateway:8443"
+_STUB_OPEN = "respond <<STUB"
+_STUB_CLOSE = "STUB 200"
+_STUB_NAMES = (
+    ("Quiet", "Northern", "Silver", "Open", "Bright", "Green", "Calm", "Little"),
+    ("Studio", "Workshop", "Notes", "Garden", "Field", "Corner", "Atlas", "Bench"),
+)
+_STUB_MESSAGES = (
+    "New content is coming soon.",
+    "This site is being prepared.",
+    "Something new is on the way.",
+    "The page will be available soon.",
+)
+_STUB_COLORS = (
+    ("#f6f7f9", "#1f2933", "#2b6cb0"),
+    ("#fbfaf7", "#2d2a26", "#8a5a2b"),
+    ("#f4f8f5", "#1e2b24", "#2f7d4f"),
+    ("#f7f6fb", "#26233a", "#5b4bb7"),
+    ("#ffffff", "#222222", "#b03a2e"),
+    ("#f5f7fa", "#1b2430", "#0f766e"),
+)
 
 
 class RenderError(RuntimeError):
@@ -97,6 +124,12 @@ def _limits(value: object, label: str) -> dict[str, int]:
     return normalized
 
 
+def _require_fields(value: dict[str, Any], required: frozenset[str], label: str) -> None:
+    present = set(value)
+    if not required <= present or not present - required <= _LEGACY_FIELDS:
+        raise RenderError(f"{label} has unexpected fields")
+
+
 def _validated_values(
     runtime: dict[str, Any], node: dict[str, Any]
 ) -> tuple[dict[str, Any], dict[str, Any]]:
@@ -106,16 +139,7 @@ def _validated_values(
     hysteria_value = runtime["hysteria"]
     if not isinstance(xray_value, dict) or not isinstance(hysteria_value, dict):
         raise RenderError("runtime material is invalid")
-    if set(xray_value) != {
-        "target",
-        "server_name",
-        "private_key",
-        "short_id",
-        "xhttp_path",
-        "fallback_upload",
-        "fallback_download",
-    }:
-        raise RenderError("Xray material has unexpected fields")
+    _require_fields(xray_value, _XRAY_FIELDS, "Xray material")
     if set(hysteria_value) != {
         "certificate_path",
         "private_key_path",
@@ -123,31 +147,15 @@ def _validated_values(
         "stats_secret",
     }:
         raise RenderError("Hysteria2 material has unexpected fields")
-    if set(node) != {
-        "server_name",
-        "target",
-        "xhttp_path",
-        "xray_public_key",
-        "xray_short_id",
-    }:
-        raise RenderError("node material has unexpected fields")
+    _require_fields(node, _NODE_FIELDS, "node material")
+    for name in _LEGACY_FIELDS:
+        if xray_value.get(name) != node.get(name):
+            raise RenderError("node and runtime material do not match")
 
-    server_name = _string(xray_value["server_name"], "server name")
-    target = _string(xray_value["target"], "target")
     short_id = _string(xray_value["short_id"], "short ID")
-    xhttp_path = _string(xray_value["xhttp_path"], "XHTTP path")
-    if _HOST_PATTERN.fullmatch(server_name) is None or target != f"{server_name}:443":
-        raise RenderError("target is invalid")
     if _SHORT_ID_PATTERN.fullmatch(short_id) is None:
         raise RenderError("short ID is invalid")
-    if _PATH_PATTERN.fullmatch(xhttp_path) is None:
-        raise RenderError("XHTTP path is invalid")
-    if (
-        node["server_name"] != server_name
-        or node["target"] != target
-        or node["xray_short_id"] != short_id
-        or node["xhttp_path"] != xhttp_path
-    ):
+    if node["xray_short_id"] != short_id:
         raise RenderError("node and runtime material do not match")
     upload = _limits(xray_value["fallback_upload"], "upload fallback")
     download = _limits(xray_value["fallback_download"], "download fallback")
@@ -155,12 +163,9 @@ def _validated_values(
         raise RenderError("fallback limits must differ")
 
     xray = {
-        "target": target,
-        "server_name": server_name,
         "private_key": _key(xray_value["private_key"], "private key"),
         "public_key": _key(node["xray_public_key"], "public key"),
         "short_id": short_id,
-        "xhttp_path": xhttp_path,
         "fallback_upload": upload,
         "fallback_download": download,
     }
@@ -177,6 +182,58 @@ def _validated_values(
     return xray, hysteria
 
 
+def stub_page(private_key: str) -> str:
+    """Return the neutral page shown to anyone who is not a client.
+
+    The wording and colours are derived from the node key, so the page stays
+    the same across updates but differs between servers.
+    """
+    key = base64.urlsafe_b64decode(private_key + "=" * (-len(private_key) % 4))
+    seed = hmac.new(key, b"ezopenpn stub page v1", hashlib.sha256).digest()
+    name = f"{_STUB_NAMES[0][seed[0] % 8]} {_STUB_NAMES[1][seed[1] % 8]}"
+    message = _STUB_MESSAGES[seed[2] % len(_STUB_MESSAGES)]
+    background, text, accent = _STUB_COLORS[seed[3] % len(_STUB_COLORS)]
+    body_style = (
+        "margin:0;min-height:100vh;display:flex;align-items:center;"
+        "justify-content:center;font-family:system-ui,-apple-system,"
+        f"'Segoe UI',Roboto,sans-serif;background:{background};color:{text}"
+    )
+    return "\n".join(
+        (
+            "<!doctype html>",
+            '<html lang="en">',
+            "<head>",
+            '<meta charset="utf-8">',
+            '<meta name="viewport" content="width=device-width, initial-scale=1">',
+            f"<title>{name}</title>",
+            "</head>",
+            f'<body style="{body_style}">',
+            '<main style="max-width:32rem;padding:2rem;text-align:center">',
+            f'<h1 style="margin:0 0 0.75rem;font-size:2rem;color:{accent}">{name}</h1>',
+            f'<p style="margin:0;font-size:1.05rem;line-height:1.6">{message}</p>',
+            "</main>",
+            "</body>",
+            "</html>",
+            "",
+        )
+    )
+
+
+def _gateway_config(template: str, page: str) -> str:
+    # Caddy would read braces in the page as placeholders.
+    if any(character in page for character in "{}") or "STUB" in page:
+        raise RenderError("stub page is invalid")
+    lines = template.split("\n")
+    opening = [index for index, line in enumerate(lines) if line.strip() == _STUB_OPEN]
+    closing = [index for index, line in enumerate(lines) if line.strip() == _STUB_CLOSE]
+    if len(opening) != 1 or len(closing) != 1 or closing[0] <= opening[0]:
+        raise RenderError("gateway template is invalid")
+    marker = lines[closing[0]]
+    indent = marker[: len(marker) - len(marker.lstrip("\t"))]
+    body = [f"{indent}{line}" for line in page.rstrip("\n").split("\n")]
+    return "\n".join([*lines[: opening[0] + 1], *body, *lines[closing[0] :]])
+
+
 def _xray_config(values: dict[str, Any]) -> str:
     config = {
         "log": {"access": "none", "dnsLog": False, "loglevel": "warning"},
@@ -189,14 +246,15 @@ def _xray_config(values: dict[str, Any]) -> str:
                 "tag": "protected-entry",
                 "settings": {"clients": [], "decryption": "none"},
                 "streamSettings": {
-                    "network": "xhttp",
+                    "network": "raw",
                     "security": "reality",
-                    "xhttpSettings": {"mode": "auto", "path": values["xhttp_path"]},
                     "realitySettings": {
                         "show": False,
-                        "target": values["target"],
+                        "target": _REALITY_TARGET,
                         "xver": 0,
-                        "serverNames": [values["server_name"]],
+                        # An empty name accepts clients that send no SNI, as
+                        # browsers do when they open a bare IP address.
+                        "serverNames": [""],
                         "privateKey": values["private_key"],
                         "shortIds": [values["short_id"]],
                         "limitFallbackUpload": {
@@ -313,9 +371,7 @@ def _control_config(public_ip: str, values: dict[str, Any]) -> str:
             'grpc_target = "xray:10085"',
             'inbound_tag = "protected-entry"',
             f"reality_public_key = {_quote(values['public_key'])}",
-            f"reality_server_name = {_quote(values['server_name'])}",
             f"reality_short_id = {_quote(values['short_id'])}",
-            f"xhttp_path = {_quote(values['xhttp_path'])}",
             "",
             "[hysteria]",
             'stats_url = "http://hysteria:9999"',
@@ -365,8 +421,12 @@ def render(
         raise RenderError("public address must be IPv4")
     runtime, node = _load_json(values_path), _load_json(node_path)
     xray, hysteria = _validated_values(runtime, node)
-    masquerade = _read_regular(deploy_root / "masquerade" / "index.html").decode("utf-8")
-    caddyfile = _read_regular(deploy_root / "caddy" / "Caddyfile")
+    masquerade = stub_page(xray["private_key"])
+    try:
+        template = _read_regular(deploy_root / "caddy" / "Caddyfile").decode("utf-8")
+    except UnicodeDecodeError:
+        raise RenderError("gateway template is invalid") from None
+    caddyfile = _gateway_config(template, masquerade).encode("utf-8")
     compose = _read_regular(deploy_root / "compose.yaml", maximum=512 * 1024)
 
     _atomic_write(etc_root / "control.toml", _control_config(str(address), xray).encode(), 0o640)

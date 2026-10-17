@@ -263,6 +263,23 @@ class StackHarness:
             logs = self.run("logs", "--no-color", "--tail", "80", "gateway")[-3000:]
             raise RuntimeError(f"panel request failed: {error}; gateway logs={logs}") from error
 
+    def stub_get(
+        self, path: str, *, maximum: ssl.TLSVersion | None = None
+    ) -> httpx.Response:
+        # Port 443 belongs to Xray; Reality hands this connection to the stub.
+        context = ssl.create_default_context(
+            cafile=str(self.root / "gateway-certs" / "ca.crt")
+        )
+        if maximum is not None:
+            context.maximum_version = maximum
+        try:
+            return httpx.get(f"https://127.0.0.1{path}", verify=context, timeout=10)
+        except httpx.HTTPError as error:
+            logs = self.run("logs", "--no-color", "--tail", "80", "xray", "gateway")
+            raise RuntimeError(
+                f"stub request failed: {error}; logs={logs[-3000:]}"
+            ) from error
+
     def _environment_value(self, name: str) -> str:
         prefix = f"{name}="
         for line in self.environment_file.read_text(encoding="utf-8").splitlines():
@@ -437,3 +454,29 @@ def test_panel_headers_are_present(stack: StackHarness) -> None:
 
     internal = stack.https_get("/internal/hysteria/auth")
     assert internal.status_code == 404
+
+
+@pytest.mark.integration
+def test_reality_shows_the_stub_to_unknown_clients(stack: StackHarness) -> None:
+    stack.wait_healthy("xray")
+    stack.wait_healthy("gateway")
+
+    response = stack.stub_get("/")
+    assert response.status_code == 200
+    assert response.headers["strict-transport-security"] == "max-age=31536000"
+    assert "server" not in response.headers
+    assert response.text.startswith("<!doctype html>")
+    assert stack.stub_get("/login").status_code == 404
+
+    legacy = stack.stub_get("/", maximum=ssl.TLSVersion.TLSv1_2)
+    assert legacy.status_code == 200
+
+
+@pytest.mark.integration
+def test_plain_http_redirects_permanently(stack: StackHarness) -> None:
+    stack.wait_healthy("gateway")
+    response = httpx.get("http://127.0.0.1/profiles?view=1", timeout=10)
+
+    assert response.status_code == 301
+    assert response.headers["location"] == "https://127.0.0.1/profiles?view=1"
+    assert "server" not in response.headers

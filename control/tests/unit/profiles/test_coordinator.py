@@ -140,9 +140,7 @@ class CoordinatorFixture:
             TransportLinkConfig(
                 host=IPv4Address("203.0.113.10"),
                 reality_public_key="public-key",
-                reality_server_name="www.example.org",
                 reality_short_id="a1b2c3d4e5f60708",
-                xhttp_path="/coordinator-test",
                 hysteria_obfs_password="obfs-value",
             ),
         )

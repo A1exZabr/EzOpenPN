@@ -12,6 +12,7 @@ from typing import Self, cast
 from pydantic import AnyHttpUrl, BaseModel, ConfigDict, field_validator, model_validator
 
 _SECRET_SIZE = 32
+_LEGACY_XRAY_KEYS = frozenset({"reality_server_name", "xhttp_path"})
 
 
 class FrozenSettingsModel(BaseModel):
@@ -68,15 +69,12 @@ class XraySettings(FrozenSettingsModel):
     grpc_target: str = "xray:10085"
     inbound_tag: str = "protected-entry"
     reality_public_key: str
-    reality_server_name: str
     reality_short_id: str
-    xhttp_path: str
 
     @field_validator(
         "grpc_target",
         "inbound_tag",
         "reality_public_key",
-        "reality_server_name",
     )
     @classmethod
     def require_nonempty_values(cls, value: str) -> str:
@@ -90,17 +88,6 @@ class XraySettings(FrozenSettingsModel):
     def require_short_id(cls, value: str) -> str:
         if re.fullmatch(r"[0-9a-f]{2,16}", value) is None:
             raise ValueError("Reality short ID must be lowercase hexadecimal")
-        return value
-
-    @field_validator("xhttp_path")
-    @classmethod
-    def require_xhttp_path(cls, value: str) -> str:
-        if (
-            not value.startswith("/")
-            or len(value) > 256
-            or any(character in value for character in "?#\r\n")
-        ):
-            raise ValueError("XHTTP path is invalid")
         return value
 
 
@@ -182,6 +169,14 @@ class Settings(FrozenSettingsModel):
         normalized = dict(loaded)
         normalized["app"] = app
         normalized["database"] = database
+        xray_value = loaded.get("xray")
+        if isinstance(xray_value, dict):
+            # Written before v0.2.0 for the external Reality target and XHTTP.
+            normalized["xray"] = {
+                key: value
+                for key, value in xray_value.items()
+                if key not in _LEGACY_XRAY_KEYS
+            }
         return cls.model_validate(normalized)
 
 

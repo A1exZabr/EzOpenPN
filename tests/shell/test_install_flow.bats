@@ -118,7 +118,6 @@ setup() {
   printf '%s\n' 'services: {}' >"$EZOPENPN_BUNDLE_ROOT/deploy/compose.yaml"
   printf '%s\n' '#!/usr/bin/env bash' \
     >"$EZOPENPN_BUNDLE_ROOT/installer/installer-main.sh"
-  printf '%s\n' good.example >"$EZOPENPN_BUNDLE_ROOT/installer/targets.txt"
   mkdir -p "$TEST_ROOT/etc/ezopenpn/releases"
   INSTALL_VERSION=v0.1.0
 

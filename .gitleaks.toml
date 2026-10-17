@@ -4,8 +4,9 @@ title = "EzOpenPN secret scanning"
 useDefault = true
 
 [[allowlists]]
-description = "Published deterministic Xray test key"
+description = "Published deterministic Xray test keys"
 regexTarget = "match"
 regexes = [
   '''UG2LfxKeyggwo4VTtVe2jycx85N1csWWomkiPdqE-nc''',
+  '''wE2G6oGHFl38mixvBv_JGbju412yeuIyc140lRKiGGM''',
 ]

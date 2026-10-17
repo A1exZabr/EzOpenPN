@@ -26,7 +26,7 @@ services:
     networks: [runtime-test]
 
   hysteria:
-    image: tobyxdd/hysteria:v2.12.2
+    image: tobyxdd/hysteria:v2.13.0
     user: "0:0"
     command:
       - server
@@ -42,7 +42,7 @@ services:
     networks: [runtime-test]
 
   client:
-    image: tobyxdd/hysteria:v2.12.2
+    image: tobyxdd/hysteria:v2.13.0
     user: "0:0"
     restart: on-failure
     command:

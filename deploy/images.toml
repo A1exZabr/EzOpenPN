@@ -8,11 +8,11 @@ version = "nonroot"
 
 [images.go-builder]
 repository = "docker.io/library/golang"
-version = "1.26.7-bookworm"
+version = "1.26.9-bookworm"
 
 [images.hysteria]
 repository = "docker.io/tobyxdd/hysteria"
-version = "v2.12.2"
+version = "v2.13.0"
 
 [images.python-base]
 repository = "docker.io/library/python"

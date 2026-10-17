@@ -18,4 +18,4 @@ Host ownership and modes:
 
 The gateway and certificate exporter deliberately share UID 10004. The exporter sees the gateway storage read-only and has no network. Hysteria2 receives only the exported directory read-only through group 11003.
 
-Only the four documented bindings appear on the host. The control listener, Xray management listener and Hysteria2 statistics listener remain on the internal bridge.
+Only the four documented bindings appear on the host. The control listener, Xray management listener, Hysteria2 statistics listener and the gateway stub listener on 8443 remain on the internal bridges. Reality forwards every connection that is not a client to `gateway:8443`; the installer renders a per-node stub page into the Caddyfile and the Hysteria2 masquerade.

@@ -17,11 +17,12 @@ PUBLIC_DOCUMENTS = (
     ROOT / "docs/architecture.md",
     ROOT / "docs/releases/release-checklist.md",
     ROOT / "docs/releases/v0.1.9.md",
+    ROOT / "docs/releases/v0.2.0.md",
 )
 INSTALL_COMMAND = (
-    "curl -fsSL https://git.alexzabrodin.pro/ezopenpn/releases/download/v0.1.9/"
-    "install.sh | env EZOPENPN_EXPECTED_VERSION=v0.1.9 "
-    "EZOPENPN_RELEASE_BASE_URL=https://git.alexzabrodin.pro/ezopenpn/releases/download/v0.1.9 bash"
+    "curl -fsSL https://github.com/A1exZabr/EzOpenPN/releases/download/v0.2.0/"
+    "install.sh | env EZOPENPN_EXPECTED_VERSION=v0.2.0 "
+    "EZOPENPN_RELEASE_BASE_URL=https://github.com/A1exZabr/EzOpenPN/releases/download/v0.2.0 bash"
 )
 RESET_COMMAND = "sudo ezopenpn admin reset-password"
 def _text(path: Path) -> str:

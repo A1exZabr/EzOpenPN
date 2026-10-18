@@ -60,9 +60,7 @@ links = ProfileLinkService(
     TransportLinkConfig(
         host=settings.public_ip,
         reality_public_key=settings.xray.reality_public_key,
-        reality_server_name=settings.xray.reality_server_name,
         reality_short_id=settings.xray.reality_short_id,
-        xhttp_path=settings.xray.xhttp_path,
         hysteria_obfs_password=encode_url_secret(secrets.hysteria_obfs_secret),
     ),
 )

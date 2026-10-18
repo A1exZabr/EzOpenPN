@@ -74,10 +74,10 @@ ssh -o IdentitiesOnly=yes -i "$env:USERPROFILE/.ssh/ezopenpn_ed25519" root@SERVE
 В SSH-окне сервера под `root` вставьте всю строку:
 
 ```bash
-curl -fsSL https://github.com/A1exZabr/EzOpenPN/releases/download/v0.2.0/install.sh | env EZOPENPN_EXPECTED_VERSION=v0.2.0 EZOPENPN_RELEASE_BASE_URL=https://github.com/A1exZabr/EzOpenPN/releases/download/v0.2.0 bash
+curl -fsSL https://github.com/A1exZabr/EzOpenPN/releases/download/v0.2.1/install.sh | env EZOPENPN_EXPECTED_VERSION=v0.2.1 EZOPENPN_RELEASE_BASE_URL=https://github.com/A1exZabr/EzOpenPN/releases/download/v0.2.1 bash
 ```
 
-Это одна команда. Она скачивает подписанный пакет v0.2.0, проверяет его и запускает установку. Визуальный перенос длинной строки не мешает копированию. Не заменяйте версию или адрес на `latest`: пока там старый стабильный канал.
+Это одна команда. Она скачивает подписанный пакет v0.2.1, проверяет его и запускает установку. Визуальный перенос длинной строки не мешает копированию. Не заменяйте версию или адрес на `latest`: пока там старый стабильный канал.
 
 Если минимальный образ сообщает `curl: command not found` или `python3: command not found`, выполните под `root` подготовку и повторите установку:
 

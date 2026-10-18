@@ -193,6 +193,9 @@ _doctor_test_value() {
     certificate) [[ "${TEST_DOCTOR_CERTIFICATE:-}" == "1" ]] ;;
     reconcile) [[ "${TEST_DOCTOR_RECONCILE:-}" == "1" ]] ;;
     public_https) [[ "${TEST_DOCTOR_PUBLIC:-}" == "1" ]] ;;
+    camouflage) [[ "${TEST_DOCTOR_CAMOUFLAGE:-}" == "1" ]] ;;
+    http_redirect) [[ "${TEST_DOCTOR_REDIRECT:-}" == "1" ]] ;;
+    published_ports) [[ "${TEST_DOCTOR_PORTS:-}" == "1" ]] ;;
     *) return 1 ;;
   esac
 }
@@ -246,6 +249,73 @@ _doctor_reconcile() {
   done
 }
 
+_doctor_status_is() {
+  local expected="$1"
+  local headers="$2"
+  head -n 1 <<<"$headers" | tr -d '\r' | grep -Eq "^HTTP/[0-9.]+ ${expected}( |$)"
+}
+
+_doctor_header() {
+  local name="$1"
+  local headers="$2"
+  tr -d '\r' <<<"$headers" | grep -i "^${name}:" | head -n 1 | cut -d ' ' -f 2-
+}
+
+# Anyone who is not a client reaches the stub through Reality on 443/tcp.
+# It must answer over TLS 1.3 and TLS 1.2 with HSTS and without a Server name.
+_doctor_camouflage() {
+  local public_ip laboratory version headers
+  public_ip="$(_diagnostic_state_field public_ipv4)" || return 1
+  laboratory="$(_diagnostic_state_field laboratory_mode)" || return 1
+  local arguments=(--proto '=https' -sS -o /dev/null -D - --connect-timeout 5 --max-time 15)
+  if [[ "$laboratory" == true ]]; then
+    arguments+=(-k)
+  fi
+  for version in 1.3 1.2; do
+    headers="$(curl "${arguments[@]}" --tlsv"$version" --tls-max "$version" \
+      "https://${public_ip}/")" || return 1
+    _doctor_status_is 200 "$headers" || return 1
+    [[ "$(_doctor_header strict-transport-security "$headers")" == max-age=* ]] || return 1
+    [[ -z "$(_doctor_header server "$headers")" ]] || return 1
+  done
+}
+
+_doctor_http_redirect() {
+  local public_ip headers
+  public_ip="$(_diagnostic_state_field public_ipv4)" || return 1
+  headers="$(curl --proto '=http' -sS -o /dev/null -D - --connect-timeout 5 \
+    --max-time 15 "http://${public_ip}/")" || return 1
+  _doctor_status_is 301 "$headers" || return 1
+  [[ "$(_doctor_header location "$headers")" == "https://${public_ip}/" ]]
+}
+
+# Management listeners stay on the internal network: only the four public
+# bindings may be published, and only on the public address.
+_doctor_published_ports() {
+  local public_ip
+  public_ip="$(_diagnostic_state_field public_ipv4)" || return 1
+  _diagnostic_compose ps --format json | python3 -c '
+import json
+import sys
+
+text = sys.stdin.read().strip()
+if text.startswith("["):
+    services = json.loads(text)
+else:
+    services = [json.loads(line) for line in text.splitlines() if line.strip()]
+published = set()
+for service in services:
+    for publisher in service.get("Publishers") or ():
+        if not publisher.get("PublishedPort"):
+            continue
+        if publisher.get("URL") != sys.argv[1]:
+            raise SystemExit(1)
+        published.add((int(publisher["PublishedPort"]), publisher.get("Protocol")))
+expected = {(80, "tcp"), (443, "tcp"), (443, "udp"), (9443, "tcp")}
+raise SystemExit(0 if published == expected else 1)
+' "$public_ip"
+}
+
 _doctor_check() {
   local name="$1"
   if [[ -n "${TEST_DOCTOR_PREFLIGHT:-}" ]]; then
@@ -263,6 +333,9 @@ _doctor_check() {
       ;;
     reconcile) _doctor_reconcile ;;
     public_https) _diagnostic_public_ready >/dev/null ;;
+    camouflage) _doctor_camouflage ;;
+    http_redirect) _doctor_http_redirect ;;
+    published_ports) _doctor_published_ports ;;
     *) return 1 ;;
   esac
 }
@@ -270,7 +343,8 @@ _doctor_check() {
 diagnostic_doctor() {
   _diagnostic_require_installation || return
   local name degraded=0
-  for name in preflight permissions compose database certificate reconcile public_https; do
+  for name in preflight permissions compose database certificate reconcile public_https \
+    camouflage http_redirect published_ports; do
     if _doctor_check "$name" >/dev/null 2>&1; then
       printf '%s: ok\n' "$name"
     else

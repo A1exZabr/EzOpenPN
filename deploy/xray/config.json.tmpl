@@ -19,17 +19,13 @@
         "decryption": "none"
       },
       "streamSettings": {
-        "network": "xhttp",
+        "network": "raw",
         "security": "reality",
-        "xhttpSettings": {
-          "mode": "auto",
-          "path": {{ xray.xhttp_path | tojson }}
-        },
         "realitySettings": {
           "show": false,
-          "target": {{ xray.target | tojson }},
+          "target": "gateway:8443",
           "xver": 0,
-          "serverNames": [{{ xray.server_name | tojson }}],
+          "serverNames": [""],
           "privateKey": {{ xray.private_key | tojson }},
           "shortIds": [{{ xray.short_id | tojson }}],
           "limitFallbackUpload": {

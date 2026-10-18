@@ -4,11 +4,27 @@
 	http_port 8080
 	https_port 9443
 	storage file_system /data/caddy
+	auto_https disable_redirects
 	default_sni {$PUBLIC_IP}
+	fallback_sni {$PUBLIC_IP}
+	servers {
+		protocols h1 h2
+	}
+}
+
+(public_ip_certificate) {
+	tls /data/caddy/lab/server.crt /data/caddy/lab/server.key {
+		protocols tls1.2 tls1.3
+	}
+}
+
+http:// {
+	header -Server
+	redir https://{host}{uri} 301
 }
 
 https://{$PUBLIC_IP}:9443 {
-	tls /data/caddy/lab/server.crt /data/caddy/lab/server.key
+	import public_ip_certificate
 
 	header {
 		-Server
@@ -36,5 +52,44 @@ https://{$PUBLIC_IP}:9443 {
 			header_up X-Forwarded-Proto https
 			header_up X-Real-IP {remote_host}
 		}
+	}
+}
+
+# Reality forwards every connection that is not a client of this server here,
+# whatever name it asks for. The listener is reachable only from the internal
+# network and uses the public IPv4 certificate managed above.
+https://:8443 {
+	import public_ip_certificate
+
+	header {
+		-Server
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "no-referrer"
+	}
+
+	@page path / /index.html
+	handle @page {
+		header Content-Type "text/html; charset=utf-8"
+		respond <<STUB
+			<!doctype html>
+			<html lang="en">
+			<head>
+			<meta charset="utf-8">
+			<meta name="viewport" content="width=device-width, initial-scale=1">
+			<title>Welcome</title>
+			</head>
+			<body>
+			<main>
+			<h1>Welcome</h1>
+			<p>New content is coming soon.</p>
+			</main>
+			</body>
+			</html>
+			STUB 200
+	}
+
+	handle {
+		respond 404
 	}
 }

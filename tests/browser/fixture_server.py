@@ -74,9 +74,7 @@ def _create_fixture_app(root: Path) -> FastAPI:
         database=DatabaseSettings(path=database),
         xray=XraySettings(
             reality_public_key="fixture-public-key",
-            reality_server_name="www.example.org",
             reality_short_id="a1b2c3d4e5f60708",
-            xhttp_path="/browser-fixture",
         ),
     )
     links = ProfileLinkService(
@@ -85,9 +83,7 @@ def _create_fixture_app(root: Path) -> FastAPI:
         TransportLinkConfig(
             host=settings.public_ip,
             reality_public_key=settings.xray.reality_public_key,
-            reality_server_name=settings.xray.reality_server_name,
             reality_short_id=settings.xray.reality_short_id,
-            xhttp_path=settings.xray.xhttp_path,
             hysteria_obfs_password="fixture-obfs-value",
         ),
     )

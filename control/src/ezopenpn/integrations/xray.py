@@ -16,6 +16,8 @@ from ezopenpn.integrations.xray_proto.common.protocol import user_pb2
 from ezopenpn.integrations.xray_proto.common.serial import typed_message_pb2
 from ezopenpn.integrations.xray_proto.proxy.vless import account_pb2
 
+# Vision hides the inner TLS handshake that plain VLESS would expose.
+VISION_FLOW = "xtls-rprx-vision"
 _RUNTIME_ID_PATTERN = re.compile(r"p_[a-z2-7]{26}")
 _MUTATION_TIMEOUT_SECONDS = 3.0
 _LIST_TIMEOUT_SECONDS = 2.0
@@ -113,7 +115,9 @@ class GrpcXrayClient:
 
     def add_user(self, runtime_id: str, user_id: UUID) -> None:
         email = _runtime_id(runtime_id)
-        account = account_pb2.Account(id=str(user_id), encryption="none")
+        account = account_pb2.Account(
+            id=str(user_id), flow=VISION_FLOW, encryption="none"
+        )
         user = user_pb2.User(
             level=0,
             email=email,

@@ -109,6 +109,14 @@ def test_hysteria_waits_for_control_and_certificate_health(
     assert dependencies["cert-sync"]["condition"] == "service_healthy"
 
 
+def test_reality_stub_listener_stays_internal(compose: dict[str, object]) -> None:
+    services = compose["services"]
+    assert isinstance(services, dict)
+    gateway = services["gateway"]
+    assert gateway["expose"] == ["8443"]
+    assert all(int(binding["target"]) != 8443 for binding in gateway["ports"])
+
+
 def test_gateway_and_control_can_start_before_transports(
     compose: dict[str, object],
 ) -> None:

@@ -7,9 +7,7 @@ from ezopenpn.config import SecretFiles, Settings
 
 _XRAY_CONFIG = (
     '[xray]\nreality_public_key="public-key"\n'
-    'reality_server_name="www.example.org"\n'
     'reality_short_id="a1b2c3d4e5f60708"\n'
-    'xhttp_path="/config-test"\n'
 )
 
 
@@ -47,6 +45,38 @@ def test_settings_load_frozen_defaults(tmp_path: Path) -> None:
     assert settings.session.idle_seconds == 12 * 60 * 60
     with pytest.raises(ValidationError, match="frozen"):
         settings.app.public_ip = "198.51.100.7"  # type: ignore[misc]
+
+
+def test_settings_ignore_transport_keys_written_before_selfsteal(
+    tmp_path: Path,
+) -> None:
+    config = tmp_path / "control.toml"
+    config.write_text(
+        '[app]\npublic_ip="203.0.113.10"\n'
+        'database_path="/var/lib/ezopenpn/state.db"\n'
+        + _XRAY_CONFIG
+        + 'reality_server_name="www.example.org"\nxhttp_path="/old-path"\n',
+        encoding="utf-8",
+    )
+
+    settings = Settings.load(config)
+
+    assert settings.xray.reality_short_id == "a1b2c3d4e5f60708"
+    assert not hasattr(settings.xray, "xhttp_path")
+
+
+def test_settings_still_reject_unknown_xray_keys(tmp_path: Path) -> None:
+    config = tmp_path / "control.toml"
+    config.write_text(
+        '[app]\npublic_ip="203.0.113.10"\n'
+        'database_path="/var/lib/ezopenpn/state.db"\n'
+        + _XRAY_CONFIG
+        + 'unexpected="value"\n',
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValidationError, match="unexpected"):
+        Settings.load(config)
 
 
 def test_secret_loader_rejects_open_permissions(tmp_path: Path) -> None:

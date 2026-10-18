@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import Self
 
 import yaml
+from installer.render_config import stub_page
 from jinja2 import Environment, FileSystemLoader, StrictUndefined
 from pydantic import BaseModel, ConfigDict, ValidationError, field_validator, model_validator
 
@@ -22,10 +23,6 @@ from pydantic import BaseModel, ConfigDict, ValidationError, field_validator, mo
 _ROOT = Path(__file__).resolve().parents[1]
 _TEMPLATE_ROOT = _ROOT / "deploy"
 _MAX_VALUES_BYTES = 64 * 1024
-_HOST_PATTERN = re.compile(
-    r"(?=.{1,253}\Z)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+"
-    r"[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?"
-)
 _SHORT_ID_PATTERN = re.compile(r"(?:[0-9a-f]{2}){1,8}")
 _INBOUND_TAG_PATTERN = re.compile(r"[a-z0-9][a-z0-9-]{0,63}")
 
@@ -55,11 +52,8 @@ class FallbackLimit(FrozenModel):
 
 
 class XrayValues(FrozenModel):
-    target: str
-    server_name: str
     private_key: str
     short_id: str
-    xhttp_path: str
     fallback_upload: FallbackLimit
     fallback_download: FallbackLimit
     # These bind only inside isolated containers; Compose controls every host publish.
@@ -68,22 +62,6 @@ class XrayValues(FrozenModel):
     api_listen: str = "0.0.0.0"  # nosec B104
     api_port: int = 10085
     inbound_tag: str = "protected-entry"
-
-    @field_validator("server_name")
-    @classmethod
-    def validate_server_name(cls, value: str) -> str:
-        normalized = value.strip().lower()
-        if _HOST_PATTERN.fullmatch(normalized) is None:
-            raise ValueError("server name is invalid")
-        return normalized
-
-    @field_validator("target")
-    @classmethod
-    def validate_target(cls, value: str) -> str:
-        host, separator, port = value.rpartition(":")
-        if separator != ":" or port != "443" or _HOST_PATTERN.fullmatch(host) is None:
-            raise ValueError("target is invalid")
-        return value
 
     @field_validator("private_key")
     @classmethod
@@ -103,17 +81,6 @@ class XrayValues(FrozenModel):
     def validate_short_id(cls, value: str) -> str:
         if _SHORT_ID_PATTERN.fullmatch(value) is None:
             raise ValueError("Reality short ID is invalid")
-        return value
-
-    @field_validator("xhttp_path")
-    @classmethod
-    def validate_xhttp_path(cls, value: str) -> str:
-        if (
-            not value.startswith("/")
-            or len(value) > 256
-            or any(character in value for character in "?#\r\n")
-        ):
-            raise ValueError("XHTTP path is invalid")
         return value
 
     @field_validator("listen", "api_listen")
@@ -146,9 +113,7 @@ class XrayValues(FrozenModel):
         return value
 
     @model_validator(mode="after")
-    def require_target_name_match(self) -> Self:
-        if self.target != f"{self.server_name}:443":
-            raise ValueError("Reality target and server name must match")
+    def require_distinct_fallback_limits(self) -> Self:
         if self.fallback_upload == self.fallback_download:
             raise ValueError("fallback limits must not be identical")
         return self
@@ -234,9 +199,7 @@ def _render(values: RuntimeValues) -> tuple[str, str]:
     environment = _environment()
     context = values.model_dump(mode="json")
     try:
-        masquerade = (_TEMPLATE_ROOT / "masquerade" / "index.html").read_text(
-            encoding="utf-8"
-        )
+        masquerade = stub_page(values.xray.private_key)
         xray = environment.get_template("xray/config.json.tmpl").render(**context)
         hysteria = environment.get_template("hysteria/config.yaml.tmpl").render(
             **context,

@@ -17,9 +17,7 @@ trusted_hosts = ["gateway"]
 grpc_target = "xray:10085"
 inbound_tag = "protected-entry"
 reality_public_key = {{ xray.public_key | tojson }}
-reality_server_name = {{ xray.server_name | tojson }}
 reality_short_id = {{ xray.short_id | tojson }}
-xhttp_path = {{ xray.xhttp_path | tojson }}
 
 [hysteria]
 stats_url = "http://hysteria:9999"

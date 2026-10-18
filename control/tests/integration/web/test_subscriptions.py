@@ -23,7 +23,7 @@ def test_active_subscription_is_private_and_contains_two_transports(
     decoded = base64.b64decode(response.text).decode("utf-8")
     assert decoded.count("\n") == 1
     vless_link, hysteria_link = decoded.splitlines()
-    assert parse_qs(urlsplit(vless_link).query)["mode"] == ["packet-up"]
+    assert parse_qs(urlsplit(vless_link).query)["flow"] == ["xtls-rprx-vision"]
     assert parse_qs(urlsplit(hysteria_link).query)["obfs"] == ["salamander"]
 
 

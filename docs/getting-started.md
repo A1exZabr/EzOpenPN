@@ -30,8 +30,8 @@
 | Порт | Протокол | Для чего |
 |---|---|---|
 | 22, если провайдер не выдал другой | TCP | SSH, управление сервером |
-| 80 | TCP | Получение и продление сертификата |
-| 443 | TCP | Транспорт A |
+| 80 | TCP | Сертификат и перенаправление на HTTPS |
+| 443 | TCP | Транспорт A и страница-заглушка |
 | 443 | UDP | Транспорт B |
 | 9443 | TCP | Веб-панель и общие ссылки |
 
@@ -71,15 +71,13 @@ ssh -o IdentitiesOnly=yes -i "$env:USERPROFILE/.ssh/ezopenpn_ed25519" root@SERVE
 
 ## 4. Установите EzOpenPN
 
-**Временно не запускайте установку:** прежний реестр недоступен, идёт перенос на GitHub Releases и GHCR. Актуальный статус и проверенная команда появятся в [README](../README.md#установка-одной-командой). Уже работающий сервер переустанавливать не нужно.
-
 В SSH-окне сервера под `root` вставьте всю строку:
 
 ```bash
-curl -fsSL https://git.alexzabrodin.pro/ezopenpn/releases/download/v0.1.9/install.sh | env EZOPENPN_EXPECTED_VERSION=v0.1.9 EZOPENPN_RELEASE_BASE_URL=https://git.alexzabrodin.pro/ezopenpn/releases/download/v0.1.9 bash
+curl -fsSL https://github.com/A1exZabr/EzOpenPN/releases/download/v0.2.0/install.sh | env EZOPENPN_EXPECTED_VERSION=v0.2.0 EZOPENPN_RELEASE_BASE_URL=https://github.com/A1exZabr/EzOpenPN/releases/download/v0.2.0 bash
 ```
 
-Это одна команда. Она скачивает подписанный пакет v0.1.9, проверяет его и запускает установку. Визуальный перенос длинной строки не мешает копированию. Не заменяйте версию или адрес на `latest`: пока там старый стабильный канал.
+Это одна команда. Она скачивает подписанный пакет v0.2.0, проверяет его и запускает установку. Визуальный перенос длинной строки не мешает копированию. Не заменяйте версию или адрес на `latest`: пока там старый стабильный канал.
 
 Если минимальный образ сообщает `curl: command not found` или `python3: command not found`, выполните под `root` подготовку и повторите установку:
 

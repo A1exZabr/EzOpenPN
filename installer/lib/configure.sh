@@ -111,12 +111,8 @@ _run_xray() {
     "$TEST_XRAY_BIN" "$@"
     return
   fi
-  local network=bridge
-  if [[ "${1:-}" == x25519 ]]; then
-    network=none
-  fi
   docker run --rm \
-    --network "$network" \
+    --network none \
     --read-only \
     --cap-drop ALL \
     --security-opt no-new-privileges:true \
@@ -124,56 +120,6 @@ _run_xray() {
     --memory 128m \
     --entrypoint /usr/local/bin/xray \
     "$image" "$@"
-}
-
-_normalize_target_name() {
-  python3 - "$1" <<'PY'
-from __future__ import annotations
-
-import re
-import sys
-
-value = sys.argv[1].strip().lower()
-pattern = re.compile(
-    r"(?=.{1,253}\Z)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+"
-    r"[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?"
-)
-if pattern.fullmatch(value) is None:
-    raise SystemExit(1)
-print(value)
-PY
-}
-
-select_reality_target() {
-  local targets_path="$1"
-  local image="$2"
-  if [[ ! -f "$targets_path" || -L "$targets_path" ]]; then
-    die 44 "E_TARGET_LIST: список проверяемых узлов недоступен"
-    return
-  fi
-  _require_digest_image "$image" || return
-
-  local line candidate output success_count version_count
-  while IFS= read -r line || [[ -n "$line" ]]; do
-    line="${line%%#*}"
-    if ! candidate="$(_normalize_target_name "$line" 2>/dev/null)"; then
-      continue
-    fi
-    if ! output="$(_run_xray "$image" tls ping "${candidate}:443" 2>&1)"; then
-      continue
-    fi
-    success_count="$(grep -c 'Handshake succeeded' <<<"$output" || true)"
-    version_count="$(grep -c 'TLS Version:.*TLS 1\.3' <<<"$output" || true)"
-    if (( success_count >= 2 && version_count >= 2 )) && \
-      grep -q 'Pinging with SNI' <<<"$output" && \
-      grep -q 'TLS ping finished' <<<"$output"; then
-      REALITY_SERVER_NAME="$candidate"
-      REALITY_TARGET="${candidate}:443"
-      return 0
-    fi
-  done <"$targets_path"
-
-  die 44 "E_TARGET_UNAVAILABLE: не найден подходящий TLS 1.3 узел"
 }
 
 _validate_runtime_material() {
@@ -205,11 +151,13 @@ public_key = node["xray_public_key"]
 for value in (private_key, public_key):
     if len(base64.urlsafe_b64decode(value + "=" * (-len(value) % 4))) != 32:
         raise SystemExit(1)
-if runtime["xray"]["target"] != node["target"]:
-    raise SystemExit(1)
-if runtime["xray"]["server_name"] != node["server_name"]:
-    raise SystemExit(1)
+# Material from v0.1.x also names the external target and the XHTTP path.
+for name in ("target", "server_name", "xhttp_path"):
+    if runtime["xray"].get(name) != node.get(name):
+        raise SystemExit(1)
 if re.fullmatch(r"[0-9a-f]{16}", runtime["xray"]["short_id"]) is None:
+    raise SystemExit(1)
+if node["xray_short_id"] != runtime["xray"]["short_id"]:
     raise SystemExit(1)
 PY
 }
@@ -224,8 +172,7 @@ _remove_material_temporary() {
 }
 
 configure_runtime_material() {
-  local targets_path="$1"
-  local image="$2"
+  local image="$1"
   local runtime_root material_root
   runtime_root="$(_configure_path /var/lib/ezopenpn/runtime)"
   material_root="${runtime_root}/material"
@@ -237,7 +184,7 @@ configure_runtime_material() {
     return 0
   fi
 
-  select_reality_target "$targets_path" "$image" || return
+  _require_digest_image "$image" || return
   local temporary key_output
   temporary="$(mktemp -d "${runtime_root}/.runtime-material.XXXXXX")"
   key_output="${temporary}/x25519.out"
@@ -254,8 +201,7 @@ configure_runtime_material() {
   api_path="$(_configure_path /var/lib/ezopenpn/secrets/hysteria-api.key)"
   obfs_path="$(_configure_path /var/lib/ezopenpn/secrets/hysteria-obfs.key)"
   if ! python3 - \
-    "$temporary" "$key_output" "$REALITY_TARGET" "$REALITY_SERVER_NAME" \
-    "$master_path" "$api_path" "$obfs_path" <<'PY'
+    "$temporary" "$key_output" "$master_path" "$api_path" "$obfs_path" <<'PY'
 from __future__ import annotations
 
 import base64
@@ -269,9 +215,7 @@ from pathlib import Path
 
 root = Path(sys.argv[1])
 key_output = Path(sys.argv[2]).read_text(encoding="ascii")
-target = sys.argv[3]
-server_name = sys.argv[4]
-secret_paths = [Path(value) for value in sys.argv[5:8]]
+secret_paths = [Path(value) for value in sys.argv[3:6]]
 
 
 def parse_key(label: str) -> str:
@@ -323,14 +267,10 @@ download = fallback_limits()
 while download == upload:
     download = fallback_limits()
 short_id = secrets.token_hex(8)
-xhttp_path = "/" + encode(secrets.token_bytes(18))
 runtime = {
     "xray": {
-        "target": target,
-        "server_name": server_name,
         "private_key": private_key,
         "short_id": short_id,
-        "xhttp_path": xhttp_path,
         "fallback_upload": upload,
         "fallback_download": download,
     },
@@ -342,9 +282,6 @@ runtime = {
     },
 }
 node = {
-    "server_name": server_name,
-    "target": target,
-    "xhttp_path": xhttp_path,
     "xray_public_key": public_key,
     "xray_short_id": short_id,
 }

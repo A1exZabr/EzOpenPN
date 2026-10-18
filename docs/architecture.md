@@ -4,19 +4,20 @@ EzOpenPN разделяет постоянное состояние, публи�
 
 ```text
 Internet
-  |-- 80/tcp, 9443/tcp --> gateway --> control --> SQLite
-  |-- 443/tcp ----------> xray <---- narrow gRPC
-  |-- 443/udp ----------> hysteria <- internal auth
-                                      control
+  |-- 80/tcp -----------> gateway: 301 на https://IP/
+  |-- 9443/tcp ---------> gateway --> control --> SQLite
+  |-- 443/tcp ----------> xray <---- narrow gRPC от control
+  |                        `-- не профиль --> gateway:8443 (заглушка)
+  |-- 443/udp ----------> hysteria <- internal auth от control
 ```
 
 ## Сервисы
 
 | Сервис | Ответственность | Публичный порт |
 |---|---|---|
-| `gateway` | HTTPS панели, общие ссылки, сертификат публичного IPv4 | `80/tcp`, `9443/tcp` |
+| `gateway` | HTTPS панели, общие ссылки, заглушка для Reality, 301 на 80, сертификат публичного IPv4 | `80/tcp`, `9443/tcp` |
 | `control` | Администратор, профили, база, ссылки, runtime reconciliation | Нет |
-| `xray` | VLESS + Reality поверх XHTTP | `443/tcp` |
+| `xray` | VLESS + Reality с Vision, Selfsteal без SNI | `443/tcp` |
 | `hysteria` | Hysteria2 с Salamander | `443/udp` |
 | `cert-sync` | Атомарный экспорт сертификата для Hysteria2 | Нет |
 

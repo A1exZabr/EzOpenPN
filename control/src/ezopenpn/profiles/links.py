@@ -11,6 +11,7 @@ from uuid import UUID
 import segno
 from nacl.exceptions import CryptoError
 
+from ezopenpn.integrations.xray import VISION_FLOW
 from ezopenpn.models import ProfileState
 from ezopenpn.profiles.repository import ProfileRepository
 from ezopenpn.profiles.types import LinkBundle, ProfileRecord, profile_value_context
@@ -34,9 +35,7 @@ class VlessMaterial:
     user_id: UUID
     host: IPv4Address
     public_key: str
-    server_name: str
     short_id: str
-    path: str
     port: int = 443
 
 
@@ -52,9 +51,7 @@ class HysteriaMaterial:
 class TransportLinkConfig:
     host: IPv4Address
     reality_public_key: str
-    reality_server_name: str
     reality_short_id: str
-    xhttp_path: str
     hysteria_obfs_password: str = field(repr=False)
     public_port: int = 443
     panel_port: int = 9443
@@ -62,35 +59,29 @@ class TransportLinkConfig:
     def __post_init__(self) -> None:
         for value in (
             self.reality_public_key,
-            self.reality_server_name,
             self.hysteria_obfs_password,
         ):
             if not value or not value.isascii() or any(character.isspace() for character in value):
                 raise ValueError("transport link configuration is invalid")
         if _SHORT_ID_PATTERN.fullmatch(self.reality_short_id) is None:
             raise ValueError("transport link configuration is invalid")
-        if (
-            not self.xhttp_path.startswith("/")
-            or len(self.xhttp_path) > 256
-            or any(character in self.xhttp_path for character in "?#\r\n")
-        ):
-            raise ValueError("transport link configuration is invalid")
         if not 1 <= self.public_port <= 65535 or not 1 <= self.panel_port <= 65535:
             raise ValueError("transport link ports are invalid")
 
 
 def build_vless_link(material: VlessMaterial, label: str) -> str:
+    # An IP address as the server name makes clients send no SNI, which is
+    # what the server accepts and what a browser sends to a bare address.
     query = urlencode(
         (
-            ("type", "xhttp"),
+            ("type", "tcp"),
             ("security", "reality"),
             ("encryption", "none"),
+            ("flow", VISION_FLOW),
             ("pbk", material.public_key),
             ("fp", "chrome"),
-            ("sni", material.server_name),
+            ("sni", str(material.host)),
             ("sid", material.short_id),
-            ("path", material.path),
-            ("mode", "packet-up"),
         )
     )
     authority = f"{quote(str(material.user_id), safe='')}@{material.host}:{material.port}"
@@ -187,9 +178,7 @@ class ProfileLinkService:
                 user_id=user_id,
                 host=self._config.host,
                 public_key=self._config.reality_public_key,
-                server_name=self._config.reality_server_name,
                 short_id=self._config.reality_short_id,
-                path=self._config.xhttp_path,
                 port=self._config.public_port,
             ),
             record.name,

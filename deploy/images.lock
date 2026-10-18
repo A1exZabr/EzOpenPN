@@ -2,7 +2,7 @@
 repository = "docker.io/library/caddy"
 version = "2.11.4-alpine"
 platform = "linux/amd64"
-digest = "sha256:98eb57d882ccd5213d1688764db10c1ca2c58a1ca3a6717a3411ad798f7a423a"
+digest = "sha256:040e9f7480b80b6d4a7e5013a21159b950a63dcbdb956e38abe2387fb28d9ec0"
 
 [images.distroless-base]
 repository = "gcr.io/distroless/base-debian12"
@@ -12,15 +12,15 @@ digest = "sha256:5883c320d81f76c764e114c9ab14054f037bb040907816fc9028d80d9602a7c
 
 [images.go-builder]
 repository = "docker.io/library/golang"
-version = "1.26.7-bookworm"
+version = "1.26.9-bookworm"
 platform = "linux/amd64"
-digest = "sha256:659cc38c1a394eeb4dd7e31fff6df128bd33444dcc7afd70e3bed5225749dbc0"
+digest = "sha256:bcef992b77b1e2031aaaa51da75cebc32da8e9c182e12e633ea79023c79d9eff"
 
 [images.hysteria]
 repository = "docker.io/tobyxdd/hysteria"
-version = "v2.12.2"
+version = "v2.13.0"
 platform = "linux/amd64"
-digest = "sha256:3f53f99ca80ddbc96010ba4cd98d385c72247aa36890f77f864ae4bf09e444fd"
+digest = "sha256:5ed85e7f01de4ea6b8ce66ed6e69527e59c29784138f3f9d933d81024fc5c69f"
 
 [images.python-base]
 repository = "docker.io/library/python"

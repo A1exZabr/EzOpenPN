@@ -83,8 +83,15 @@ sudo ezopenpn doctor
 | `E_IMAGE_REFERENCE` | Image lock не содержит полного digest. Повторно скачайте проверенный release. |
 | `E_SECRET_FILE` | Секретный файл отсутствует, является symlink или имеет неверный размер. Восстановите backup. |
 | `E_RUNTIME_KEY`, `E_RUNTIME_MATERIAL` | Runtime значения повреждены. Не генерируйте их отдельно, используйте `reinstall` или restore. |
-| `E_TARGET_LIST`, `E_TARGET_UNAVAILABLE` | Автопроверка не нашла подходящий TLS 1.3 target. Проверьте исходящую сеть и повторите позже. |
 | `E_LAB_CERTIFICATE`, `E_LAB_CONFIRMATION` | Смотрите закрытый расширенный раздел ниже. |
+
+## Маскировка в doctor
+
+| Строка `doctor` | Что значит `failed` |
+|---|---|
+| `camouflage` | `https://SERVER_IP/` не отдал заглушку по TLS 1.3 и TLS 1.2 с HSTS или показал заголовок `Server`. Проверьте `status`: должны быть healthy `xray` и `gateway`, а сертификат действовать. |
+| `http_redirect` | Порт 80 не ответил `301` на `https://SERVER_IP/`. Проверьте правило `80/tcp` у провайдера и состояние `gateway`. |
+| `published_ports` | Опубликован лишний порт или порт слушает не публичный IPv4. Не меняйте `compose.yaml` вручную, выполните `sudo ezopenpn reinstall`. |
 
 ## Запуск и сертификат
 

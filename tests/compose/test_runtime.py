@@ -32,11 +32,8 @@ _TEST_VALUES_TO_REDACT = (
 def _values() -> dict[str, object]:
     return {
         "xray": {
-            "target": "www.example.org:443",
-            "server_name": "www.example.org",
             "private_key": "UG2LfxKeyggwo4VTtVe2jycx85N1csWWomkiPdqE-nc",
             "short_id": "a1b2c3d4e5f60708",
-            "xhttp_path": "/runtime-check",
             "fallback_upload": {
                 "after_bytes": 9437184,
                 "bytes_per_second": 786432,
@@ -73,14 +70,12 @@ def test_rendered_xray_config_has_no_static_profiles(rendered: Path) -> None:
     )
 
     assert inbound["settings"]["clients"] == []
-    assert inbound["streamSettings"]["network"] == "xhttp"
-    assert inbound["streamSettings"]["xhttpSettings"] == {
-        "mode": "auto",
-        "path": "/runtime-check",
-    }
+    assert inbound["streamSettings"]["network"] == "raw"
+    assert "xhttpSettings" not in inbound["streamSettings"]
     reality = inbound["streamSettings"]["realitySettings"]
     assert reality["show"] is False
-    assert reality["target"] == "www.example.org:443"
+    assert reality["target"] == "gateway:8443"
+    assert reality["serverNames"] == [""]
     assert reality["limitFallbackUpload"]["bytesPerSec"] == 786432
     assert config["api"] == {"tag": "api", "services": ["HandlerService"]}
 
@@ -97,7 +92,9 @@ def test_rendered_hysteria_is_fail_closed(rendered: Path) -> None:
     assert config["trafficStats"]["secret"] == "test-stats-value-5678"
     assert config["tls"]["sniGuard"] == "dns-san"
     assert config["masquerade"]["type"] == "string"
-    assert "EzOpenPN" in config["masquerade"]["string"]["content"]
+    content = config["masquerade"]["string"]["content"]
+    assert content.startswith("<!doctype html>")
+    assert "EzOpenPN" not in content
 
 
 def test_rendered_files_are_private(rendered: Path) -> None:
@@ -122,9 +119,9 @@ def test_unknown_values_fail_without_partial_output(tmp_path: Path) -> None:
     assert not (output / "hysteria" / "config.yaml").exists()
 
 
-def test_invalid_xhttp_path_is_rejected(tmp_path: Path) -> None:
+def test_invalid_short_id_is_rejected(tmp_path: Path) -> None:
     values = _values()
-    values["xray"]["xhttp_path"] = "missing-leading-slash"  # type: ignore[index]
+    values["xray"]["short_id"] = "not-hexadecimal"  # type: ignore[index]
     values_path = tmp_path / "values.json"
     values_path.write_text(json.dumps(values), encoding="utf-8")
 

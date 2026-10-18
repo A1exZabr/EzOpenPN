@@ -111,7 +111,7 @@ def test_gateway_uses_crypto_with_cve_2026_56854_fixed() -> None:
     lock = tomllib.loads(
         (_ROOT / "runtime/caddy-source.lock").read_text(encoding="utf-8")
     )
-    assert lock["modules"]["golang.org/x/crypto"] == "v0.55.0"
+    assert lock["modules"]["golang.org/x/crypto"] == "v0.58.0"
 
 
 def test_gateway_security_refresh_uses_compatible_module_set() -> None:

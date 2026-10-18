@@ -111,9 +111,7 @@ def prepare(root: Path, state_path: Path, project: str) -> None:
             'grpc_target = "xray:10085"',
             'inbound_tag = "protected-entry"',
             f'reality_public_key = "{_XRAY_PUBLIC_KEY}"',
-            'reality_server_name = "www.example.org"',
             'reality_short_id = "a1b2c3d4e5f60708"',
-            'xhttp_path = "/stack-check"',
             "",
             "[hysteria]",
             'stats_url = "http://hysteria:9999"',
@@ -124,11 +122,8 @@ def prepare(root: Path, state_path: Path, project: str) -> None:
 
     runtime_values = {
         "xray": {
-            "target": "www.example.org:443",
-            "server_name": "www.example.org",
             "private_key": _XRAY_PRIVATE_KEY,
             "short_id": "a1b2c3d4e5f60708",
-            "xhttp_path": "/stack-check",
             "fallback_upload": {
                 "after_bytes": 9437184,
                 "bytes_per_second": 786432,

@@ -7,12 +7,12 @@ requires-python = ">=3.12,<3.13"
 dependencies = [
   "alembic==1.20.0",
   "argon2-cffi==25.1.0",
-  "fastapi==0.143.0",
+  "fastapi==0.143.2",
   "grpcio==1.84.0",
   "httpx==0.28.1",
   "jinja2==3.1.6",
   "protobuf==7.36.2",
-  "pydantic-settings==2.15.0",
+  "pydantic-settings==2.16.0",
   "pynacl==1.6.2",
   "python-multipart==0.0.32",
   "pyyaml==6.0.3",
@@ -31,7 +31,7 @@ dev = [
   "pytest-asyncio==1.4.0",
   "pytest-cov==7.1.0",
   "respx==0.23.1",
-  "ruff==0.17.0",
+  "ruff==0.17.1",
   "types-grpcio==1.84.0.20260928",
 ]
 

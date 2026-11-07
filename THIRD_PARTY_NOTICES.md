@@ -7,7 +7,7 @@
 | Закреплённый источник | Версия | Основная лицензия | Форма использования |
 |---|---|---|---|
 | `docker.io/library/caddy` | `2.11.4-alpine` | Apache-2.0 для Caddy, лицензии Alpine packages отдельно | Финальная база `gateway`; бинарный файл собирается из закреплённого source archive с обновлёнными модулями |
-| `gcr.io/distroless/base-debian12` | `nonroot` | Apache-2.0 для Distroless tooling, лицензии Debian files отдельно | Минимальный финальный образ Go helpers |
+| `gcr.io/distroless/static-debian12` | `nonroot` | Apache-2.0 для Distroless tooling, лицензии Debian files отдельно | Минимальный финальный образ Go helpers |
 | `docker.io/library/golang` | `1.26.10-bookworm` | BSD-3-Clause для packaging и Go, лицензии Debian files отдельно | Только стадия сборки, не входит целиком в финальный образ |
 | `docker.io/tobyxdd/hysteria` | `v2.13.0` | MIT | Основа зеркалируемого runtime-образа Hysteria2 |
 | `docker.io/library/python` | `3.12.11-slim-bookworm` | MIT для packaging, PSF-2.0 для Python, лицензии Debian files отдельно | База сборки и runtime `control` |

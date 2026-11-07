@@ -35,7 +35,8 @@ def _meaningful_paragraphs(value: str) -> list[str]:
     paragraphs: list[str] = []
     for raw in re.split(r"\n\s*\n", value):
         paragraph = " ".join(line.strip() for line in raw.splitlines()).strip()
-        if paragraph and not paragraph.startswith("#"):
+        # Headings and the raw HTML header with the logo and badges are not prose.
+        if paragraph and not paragraph.startswith(("#", "<")):
             paragraphs.append(paragraph)
     return paragraphs
 

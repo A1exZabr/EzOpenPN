@@ -2,13 +2,13 @@
 repository = "docker.io/library/caddy"
 version = "2.11.4-alpine"
 
-[images.distroless-base]
-repository = "gcr.io/distroless/base-debian12"
+[images.distroless-static]
+repository = "gcr.io/distroless/static-debian12"
 version = "nonroot"
 
 [images.go-builder]
 repository = "docker.io/library/golang"
-version = "1.26.9-bookworm"
+version = "1.26.10-bookworm"
 
 [images.hysteria]
 repository = "docker.io/tobyxdd/hysteria"

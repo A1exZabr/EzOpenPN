@@ -4,17 +4,17 @@ version = "2.11.4-alpine"
 platform = "linux/amd64"
 digest = "sha256:040e9f7480b80b6d4a7e5013a21159b950a63dcbdb956e38abe2387fb28d9ec0"
 
-[images.distroless-base]
-repository = "gcr.io/distroless/base-debian12"
+[images.distroless-static]
+repository = "gcr.io/distroless/static-debian12"
 version = "nonroot"
 platform = "linux/amd64"
-digest = "sha256:5883c320d81f76c764e114c9ab14054f037bb040907816fc9028d80d9602a7c3"
+digest = "sha256:52dcfbabb7457ea47c82f6e13af8c8a4a1d9f7b0145142b3ecab20f2b888411d"
 
 [images.go-builder]
 repository = "docker.io/library/golang"
-version = "1.26.9-bookworm"
+version = "1.26.10-bookworm"
 platform = "linux/amd64"
-digest = "sha256:bcef992b77b1e2031aaaa51da75cebc32da8e9c182e12e633ea79023c79d9eff"
+digest = "sha256:2dcb1e14f35e4cc1db2186947cba2d19a9fce4d48a27c50658bd203c90fcc183"
 
 [images.hysteria]
 repository = "docker.io/tobyxdd/hysteria"

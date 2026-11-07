@@ -9,7 +9,7 @@ import pytest
 _ROOT = Path(__file__).resolve().parents[2]
 _EXPECTED_IMAGES = {
     "caddy",
-    "distroless-base",
+    "distroless-static",
     "go-builder",
     "hysteria",
     "python-base",

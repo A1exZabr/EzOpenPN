@@ -1,20 +1,20 @@
 schema = 1
 
 [images."ubuntu-22.04"]
-url = "https://cloud-images.ubuntu.com/jammy/20260829/jammy-server-cloudimg-amd64.img"
+url = "https://cloud-images.ubuntu.com/jammy/20261106/jammy-server-cloudimg-amd64.img"
 filename = "jammy-server-cloudimg-amd64.img"
-sha256 = "46c966c646ab2e73af6ce8a2bdd20fefbc20f851794bbd46de31d2d1103b72c0"
-manifest_url = "https://cloud-images.ubuntu.com/jammy/20260829/SHA256SUMS"
+sha256 = "f77bc6d59cb8deaa9657095736b5f5003f7705b47055f01823459715c967de6a"
+manifest_url = "https://cloud-images.ubuntu.com/jammy/20261106/SHA256SUMS"
 manifest_algorithm = "sha256"
-manifest_checksum = "46c966c646ab2e73af6ce8a2bdd20fefbc20f851794bbd46de31d2d1103b72c0"
+manifest_checksum = "f77bc6d59cb8deaa9657095736b5f5003f7705b47055f01823459715c967de6a"
 
 [images."ubuntu-24.04"]
-url = "https://cloud-images.ubuntu.com/noble/20260826/noble-server-cloudimg-amd64.img"
+url = "https://cloud-images.ubuntu.com/noble/20261017/noble-server-cloudimg-amd64.img"
 filename = "noble-server-cloudimg-amd64.img"
-sha256 = "d0fe84bb5f80853425fa6be28e2c106f30104c3cfe8611933f2e65c9b63f0e30"
-manifest_url = "https://cloud-images.ubuntu.com/noble/20260826/SHA256SUMS"
+sha256 = "04e8f2461a16a44e78a370284471f29616cdd9baf1893df25807b71f985b6c94"
+manifest_url = "https://cloud-images.ubuntu.com/noble/20261017/SHA256SUMS"
 manifest_algorithm = "sha256"
-manifest_checksum = "d0fe84bb5f80853425fa6be28e2c106f30104c3cfe8611933f2e65c9b63f0e30"
+manifest_checksum = "04e8f2461a16a44e78a370284471f29616cdd9baf1893df25807b71f985b6c94"
 
 [images."debian-12"]
 url = "https://cloud.debian.org/images/cloud/bookworm/20260821-2577/debian-12-genericcloud-amd64-20260821-2577.qcow2"

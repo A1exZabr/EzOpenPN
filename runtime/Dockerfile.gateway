@@ -20,6 +20,8 @@ RUN GOTOOLCHAIN=local GOFLAGS=-mod=mod go get \
         golang.org/x/text@v0.43.0 \
         google.golang.org/grpc@v1.83.2 \
         go.opentelemetry.io/otel@v1.44.0 \
+        github.com/go-jose/go-jose/v4@v4.1.6 \
+        github.com/klauspost/compress@v1.19.1 \
     && GOTOOLCHAIN=local GOFLAGS=-mod=mod go mod tidy \
     && GOTOOLCHAIN=local go mod verify \
     && GOTOOLCHAIN=local CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
